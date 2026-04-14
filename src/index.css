@@ -1945,3 +1945,158 @@ ion-badge {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
+
+/* ============================================
+   Modal shared overlay styles
+   ============================================ */
+
+.modal-overlay {
+  position: fixed; inset: 0; z-index: 9999;
+  background: rgba(0, 0, 0, 0.65);
+  display: flex; align-items: center; justify-content: center;
+  padding: 20px;
+}
+
+.modal-panel {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  display: flex; flex-direction: column;
+  max-height: 90vh;
+  overflow: hidden;
+}
+
+.modal-header {
+  display: flex; align-items: center; gap: 10px;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border-color);
+  flex-shrink: 0;
+}
+
+.modal-title {
+  font-size: 0.95rem; font-weight: 600; color: var(--text-normal);
+  flex: 1;
+}
+
+.modal-close {
+  background: transparent; border: none; cursor: pointer;
+  color: var(--text-faint); font-size: 1.2rem; line-height: 1;
+  padding: 4px 8px; border-radius: 4px;
+  transition: background 0.1s, color 0.1s;
+}
+.modal-close:hover { background: var(--bg-hover); color: var(--text-normal); }
+
+.modal-body { flex: 1; overflow-y: auto; padding: 20px; }
+
+.modal-footer {
+  display: flex; align-items: center; justify-content: flex-end; gap: 8px;
+  padding: 12px 20px;
+  border-top: 1px solid var(--border-color);
+  flex-shrink: 0;
+}
+
+/* ============================================
+   ConflictModal specific
+   ============================================ */
+
+.conflict-badge {
+  font-size: 0.7rem; font-weight: 600; padding: 2px 8px;
+  background: rgba(243,139,168,0.2); color: var(--accent-red);
+  border-radius: 10px; white-space: nowrap;
+}
+
+.conflict-path {
+  font-size: 0.8rem; color: var(--text-muted); font-family: monospace;
+}
+
+.conflict-columns {
+  display: flex; gap: 12px; margin-bottom: 16px;
+}
+
+.conflict-col { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+
+.conflict-col-label {
+  font-size: 0.75rem; font-weight: 600; color: var(--text-muted);
+  text-transform: uppercase; letter-spacing: 0.05em;
+}
+
+.conflict-pre {
+  font-family: monospace; font-size: 0.78rem; line-height: 1.5;
+  background: var(--bg-tertiary); border: 1px solid var(--border-color);
+  border-radius: 6px; padding: 10px; overflow: auto;
+  max-height: 260px; white-space: pre-wrap; word-break: break-all;
+  color: var(--text-normal); margin: 0;
+}
+
+.conflict-result-label {
+  font-size: 0.75rem; font-weight: 600; color: var(--text-muted);
+  text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 6px;
+}
+
+.conflict-result-area {
+  width: 100%; box-sizing: border-box;
+  min-height: 120px; max-height: 200px;
+  background: var(--bg-tertiary); border: 1px solid var(--border-color);
+  border-radius: 6px; padding: 10px;
+  font-family: monospace; font-size: 0.78rem; line-height: 1.5;
+  color: var(--text-normal); resize: vertical;
+}
+.conflict-result-area:focus { outline: none; border-color: var(--accent-primary); }
+
+.conflict-diff-line-local { background: rgba(243,139,168,0.12); }
+.conflict-diff-line-remote { background: rgba(166,227,161,0.12); }
+
+/* ============================================
+   SyncProviderModal specific
+   ============================================ */
+
+.sync-provider-cards {
+  display: flex; gap: 12px; flex-wrap: wrap;
+}
+
+.sync-provider-card {
+  flex: 1; min-width: 180px;
+  background: var(--bg-surface); border: 1px solid var(--border-color);
+  border-radius: 8px; padding: 20px;
+  display: flex; flex-direction: column; gap: 10px; align-items: flex-start;
+  transition: border-color 0.15s, background 0.15s; cursor: default;
+}
+
+.sync-provider-card:hover { background: var(--bg-hover); border-color: var(--accent-primary); }
+
+.sync-provider-icon { font-size: 1.8rem; color: var(--accent-secondary); }
+.sync-provider-name { font-size: 0.9rem; font-weight: 600; color: var(--text-normal); }
+.sync-provider-desc { font-size: 0.78rem; color: var(--text-muted); line-height: 1.4; }
+
+.sync-status-row {
+  display: flex; align-items: center; gap: 12px;
+  background: var(--bg-surface); border: 1px solid var(--border-color);
+  border-radius: 8px; padding: 14px 16px; margin-bottom: 16px;
+}
+
+.sync-status-badge {
+  font-size: 0.72rem; font-weight: 600; padding: 3px 8px; border-radius: 10px;
+  text-transform: uppercase; letter-spacing: 0.04em;
+}
+
+.sync-status-badge--idle { background: rgba(166,227,161,0.15); color: var(--accent-green); }
+.sync-status-badge--syncing { background: rgba(137,180,250,0.15); color: var(--accent-secondary); }
+.sync-status-badge--conflict { background: rgba(243,139,168,0.15); color: var(--accent-red); }
+.sync-status-badge--error { background: rgba(243,139,168,0.15); color: var(--accent-red); }
+.sync-status-badge--offline { background: rgba(108,112,134,0.15); color: var(--text-faint); }
+
+/* ============================================
+   Button utilities
+   ============================================ */
+
+.btn {
+  padding: 7px 16px; border-radius: 6px; border: none; cursor: pointer;
+  font-size: 0.82rem; font-weight: 500; transition: opacity 0.1s, background 0.15s;
+}
+.btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.btn--primary { background: var(--accent-primary); color: var(--bg-tertiary); }
+.btn--primary:hover:not(:disabled) { opacity: 0.85; }
+.btn--ghost { background: transparent; color: var(--text-muted); border: 1px solid var(--border-color); }
+.btn--ghost:hover:not(:disabled) { background: var(--bg-hover); color: var(--text-normal); }
+.btn--danger { background: transparent; color: var(--accent-red); border: 1px solid rgba(243,139,168,0.3); }
+.btn--danger:hover:not(:disabled) { background: rgba(243,139,168,0.1); }

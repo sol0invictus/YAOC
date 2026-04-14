@@ -2,6 +2,7 @@
 
 interface ImportMetaEnv {
   readonly VITE_GDRIVE_CLIENT_ID: string
+  readonly VITE_ONEDRIVE_CLIENT_ID: string
 }
 
 interface ImportMeta {

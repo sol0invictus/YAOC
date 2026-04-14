@@ -1,19 +1,25 @@
 import { IonIcon } from '@ionic/react'
-import { cloudOutline, cloudDoneOutline, syncOutline } from 'ionicons/icons'
-import type { NoteRef, SyncStatus } from '../storage/types'
+import { cloudOutline, cloudDoneOutline, syncOutline, alertCircleOutline } from 'ionicons/icons'
+import type { NoteRef, SyncStatus, SyncProviderType } from '../storage/types'
 
 interface TitleBarProps {
   activeNote: NoteRef | null
   syncStatus: SyncStatus
   signedIn: boolean
-  onSignIn: () => void
-  onSignOut: () => void
+  provider: SyncProviderType | null
+  onOpenSync: () => void
 }
 
-export default function TitleBar({ activeNote, syncStatus, signedIn, onSignIn, onSignOut }: TitleBarProps) {
+export default function TitleBar({ activeNote, syncStatus, signedIn, provider, onOpenSync }: TitleBarProps) {
   const pathParts = activeNote
     ? activeNote.path.replace(/\.md$/, '').split('/')
     : null
+
+  const syncTitle = signedIn
+    ? provider === 'onedrive'
+      ? 'OneDrive sync active'
+      : 'Google Drive sync active'
+    : 'Set up cloud sync'
 
   return (
     <div className="title-bar">
@@ -36,10 +42,17 @@ export default function TitleBar({ activeNote, syncStatus, signedIn, onSignIn, o
         {syncStatus === 'syncing' && (
           <IonIcon icon={syncOutline} className="title-bar-sync-icon spinning" />
         )}
+        {syncStatus === 'conflict' && (
+          <IonIcon
+            icon={alertCircleOutline}
+            style={{ color: 'var(--accent-red)', fontSize: '1.1rem' }}
+            title="Sync conflict"
+          />
+        )}
         <button
           className="title-bar-btn"
-          onClick={signedIn ? onSignOut : onSignIn}
-          title={signedIn ? 'Signed in to Google Drive — click to sign out' : 'Sign in to Google Drive'}
+          onClick={onOpenSync}
+          title={syncTitle}
         >
           <IonIcon icon={signedIn ? cloudDoneOutline : cloudOutline} />
         </button>

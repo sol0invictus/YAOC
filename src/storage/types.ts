@@ -17,11 +17,24 @@ export interface SyncMeta {
 
 export type SyncStatus = 'idle' | 'syncing' | 'conflict' | 'offline' | 'error'
 
+export type SyncProviderType = 'gdrive' | 'onedrive'
+
+export interface SyncAdapter {
+  readonly syncType: SyncProviderType
+  list(): Promise<NoteRef[]>
+  read(id: string): Promise<Note>
+  write(id: string, path: string, content: string): Promise<void>
+  delete(id: string): Promise<void>
+  getStartToken(): Promise<string>
+  pollChanges(token: string): Promise<{ changedIds: string[]; nextToken: string }>
+}
+
 export interface Conflict {
   noteId: string
   localContent: string
   remoteContent: string
   basePath: string
+  baseContent: string
 }
 
 export interface VaultAdapter {

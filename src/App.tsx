@@ -2,16 +2,27 @@ import { useState, useCallback, useMemo, useEffect } from 'react'
 import { IonApp, IonAlert } from '@ionic/react'
 import { IonReactRouter } from '@ionic/react-router'
 import { Route, Redirect, Switch, useLocation, useHistory } from 'react-router-dom'
+import { initGDriveAuth } from './auth/gdrive'
+import { initOneDriveAuth } from './auth/onedrive'
 import Home from './pages/Home'
 import Editor from './pages/Editor'
 import Sidebar from './components/Sidebar'
 import QuickSwitcher from './components/QuickSwitcher'
 import TitleBar from './components/TitleBar'
 import TabBar from './components/TabBar'
+import ConflictModal from './components/ConflictModal'
+import SyncProviderModal from './components/SyncProviderModal'
 import { useVault } from './hooks/useVault'
 import { useSync } from './hooks/useSync'
 import { ActiveNoteProvider } from './context/activeNote'
 import FullTextSearch from './components/FullTextSearch'
+
+// Initialize auth clients once at module load
+const gdriveClientId = import.meta.env.VITE_GDRIVE_CLIENT_ID as string | undefined
+if (gdriveClientId) initGDriveAuth(gdriveClientId)
+
+const onedriveClientId = import.meta.env.VITE_ONEDRIVE_CLIENT_ID as string | undefined
+if (onedriveClientId) initOneDriveAuth(onedriveClientId)
 
 function loadTabs(): string[] {
   try { return JSON.parse(localStorage.getItem('open-tabs') ?? '[]') } catch { return [] }
@@ -23,11 +34,22 @@ function saveTabs(tabs: string[]) {
 
 function AppShell() {
   const { notes, createNote } = useVault()
-  const { status: syncStatus, signedIn, handleSignIn, handleSignOut } = useSync()
+  const {
+    status: syncStatus,
+    signedIn,
+    provider,
+    conflicts,
+    handleSignIn,
+    handleSignOut,
+    manualSync,
+    resolveConflict,
+    dismissConflict,
+  } = useSync()
   const location = useLocation()
   const history = useHistory()
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   const [showNewNote, setShowNewNote] = useState(false)
+  const [showSyncModal, setShowSyncModal] = useState(false)
   const [openTabs, setOpenTabs] = useState<string[]>(loadTabs)
 
   const activeNoteId = useMemo(() => {
@@ -94,8 +116,8 @@ function AppShell() {
           activeNote={activeNote}
           syncStatus={syncStatus}
           signedIn={signedIn}
-          onSignIn={handleSignIn}
-          onSignOut={handleSignOut}
+          provider={provider}
+          onOpenSync={() => setShowSyncModal(true)}
         />
         <TabBar
           tabs={openTabs}
@@ -115,6 +137,25 @@ function AppShell() {
 
       <QuickSwitcher notes={notes} onCreateNote={handleCreateNote} />
       <FullTextSearch />
+
+      <SyncProviderModal
+        isOpen={showSyncModal}
+        onClose={() => setShowSyncModal(false)}
+        signedIn={signedIn}
+        provider={provider}
+        syncStatus={syncStatus}
+        onSignIn={async (p) => { await handleSignIn(p); setShowSyncModal(false) }}
+        onSignOut={() => { handleSignOut(); setShowSyncModal(false) }}
+        onManualSync={manualSync}
+      />
+
+      {conflicts[0] && (
+        <ConflictModal
+          conflict={conflicts[0]}
+          onResolve={resolveConflict}
+          onDismiss={dismissConflict}
+        />
+      )}
 
       <IonAlert
         isOpen={showNewNote}

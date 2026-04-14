@@ -1,4 +1,4 @@
-import type { VaultAdapter, NoteRef, Note } from './types'
+import type { VaultAdapter, SyncAdapter, NoteRef, Note } from './types'
 import { getToken } from '../auth/gdrive'
 
 // App folder name in the user's Drive
@@ -20,8 +20,9 @@ async function driveRequest(
   })
 }
 
-export class GDriveAdapter implements VaultAdapter {
+export class GDriveAdapter implements VaultAdapter, SyncAdapter {
   readonly type = 'gdrive' as const
+  readonly syncType = 'gdrive' as const
   private folderId: string | null = null
 
   private async ensureFolder(): Promise<string> {
@@ -127,8 +128,8 @@ export class GDriveAdapter implements VaultAdapter {
     return data.startPageToken
   }
 
-  /** Returns changed file IDs since pageToken, plus the new token */
-  async pollChanges(pageToken: string): Promise<{ changedIds: string[]; nextPageToken: string }> {
+  /** Returns changed file IDs since pageToken, plus the new token (legacy signature) */
+  async pollChanges(pageToken: string): Promise<{ changedIds: string[]; nextToken: string }> {
     const resp = await driveRequest(
       `/drive/v3/changes?pageToken=${pageToken}&fields=nextPageToken,newStartPageToken,changes(fileId,removed,file(id,name,mimeType,trashed))`,
     )
@@ -142,7 +143,12 @@ export class GDriveAdapter implements VaultAdapter {
       .map((c) => c.fileId)
     return {
       changedIds,
-      nextPageToken: data.nextPageToken ?? data.newStartPageToken ?? pageToken,
+      nextToken: data.nextPageToken ?? data.newStartPageToken ?? pageToken,
     }
+  }
+
+  /** SyncAdapter: get initial token */
+  async getStartToken(): Promise<string> {
+    return this.getStartPageToken()
   }
 }

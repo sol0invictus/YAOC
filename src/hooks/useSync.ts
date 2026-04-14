@@ -1,21 +1,24 @@
 import { useState, useRef, useCallback } from 'react'
 import { GDriveAdapter } from '../storage/GDriveAdapter'
+import { OneDriveAdapter } from '../storage/OneDriveAdapter'
 import { SyncEngine } from '../sync/engine'
-import { isSignedIn, signIn, signOut } from '../auth/gdrive'
-import type { Conflict, SyncStatus } from '../storage/types'
+import { isSignedIn as isGDriveSignedIn, signIn as gdriveSignIn, signOut as gdriveSignOut } from '../auth/gdrive'
+import { isSignedInToOneDrive, signInToOneDrive, signOutFromOneDrive } from '../auth/onedrive'
+import type { Conflict, SyncStatus, SyncProviderType } from '../storage/types'
 
 export function useSync() {
   const [status, setStatus] = useState<SyncStatus>('idle')
-  const [signedIn, setSignedIn] = useState(isSignedIn)
+  const [signedIn, setSignedIn] = useState(() => isGDriveSignedIn() || isSignedInToOneDrive())
+  const [provider, setProvider] = useState<SyncProviderType | null>(() =>
+    isGDriveSignedIn() ? 'gdrive' : isSignedInToOneDrive() ? 'onedrive' : null
+  )
   const [conflicts, setConflicts] = useState<Conflict[]>([])
   const engineRef = useRef<SyncEngine | null>(null)
-  const driveRef = useRef<GDriveAdapter | null>(null)
 
-  const startSync = useCallback(async () => {
-    const drive = new GDriveAdapter()
-    driveRef.current = drive
+  const startSync = useCallback(async (p: SyncProviderType) => {
+    const adapter = p === 'gdrive' ? new GDriveAdapter() : new OneDriveAdapter()
     const engine = new SyncEngine(
-      drive,
+      adapter,
       setStatus,
       (conflict) => setConflicts((prev) => [...prev, conflict]),
     )
@@ -23,18 +26,28 @@ export function useSync() {
     await engine.start()
   }, [])
 
-  const handleSignIn = useCallback(async () => {
-    await signIn()
+  const handleSignIn = useCallback(async (p: SyncProviderType) => {
+    if (p === 'gdrive') {
+      await gdriveSignIn()
+    } else {
+      await signInToOneDrive()
+    }
     setSignedIn(true)
-    await startSync()
+    setProvider(p)
+    await startSync(p)
   }, [startSync])
 
   const handleSignOut = useCallback(() => {
-    signOut()
+    if (provider === 'gdrive') {
+      gdriveSignOut()
+    } else if (provider === 'onedrive') {
+      signOutFromOneDrive()
+    }
     setSignedIn(false)
+    setProvider(null)
     engineRef.current?.stop()
     engineRef.current = null
-  }, [])
+  }, [provider])
 
   const manualSync = useCallback(async () => {
     await engineRef.current?.sync()
@@ -52,6 +65,7 @@ export function useSync() {
   return {
     status,
     signedIn,
+    provider,
     conflicts,
     handleSignIn,
     handleSignOut,

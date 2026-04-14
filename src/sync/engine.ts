@@ -1,6 +1,5 @@
 import { db } from '../storage/db'
-import type { GDriveAdapter } from '../storage/GDriveAdapter'
-import type { Conflict, SyncStatus } from '../storage/types'
+import type { SyncAdapter, Conflict, SyncStatus } from '../storage/types'
 import { isSame, tryMerge } from './diff'
 
 const SYNC_INTERVAL_MS = 30_000
@@ -9,24 +8,24 @@ type OnStatusChange = (status: SyncStatus) => void
 type OnConflict = (conflict: Conflict) => void
 
 export class SyncEngine {
-  private driveAdapter: GDriveAdapter
+  private adapter: SyncAdapter
   private pageToken = ''
   private intervalId: ReturnType<typeof setInterval> | null = null
   private onStatus: OnStatusChange
   private onConflict: OnConflict
 
   constructor(
-    driveAdapter: GDriveAdapter,
+    adapter: SyncAdapter,
     onStatus: OnStatusChange,
     onConflict: OnConflict,
   ) {
-    this.driveAdapter = driveAdapter
+    this.adapter = adapter
     this.onStatus = onStatus
     this.onConflict = onConflict
   }
 
   async start(): Promise<void> {
-    this.pageToken = await this.driveAdapter.getStartPageToken()
+    this.pageToken = await this.adapter.getStartToken()
     await this.sync()
     this.intervalId = setInterval(() => this.sync(), SYNC_INTERVAL_MS)
     window.addEventListener('online', () => this.flushOfflineQueue())
@@ -57,10 +56,10 @@ export class SyncEngine {
     for (const note of dirty) {
       const meta = await db.syncMeta.get(note.id)
       const driveId = meta?.driveFileId ?? `new-${note.id}`
-      await this.driveAdapter.write(driveId, note.path, note.content)
+      await this.adapter.write(driveId, note.path, note.content)
 
-      // After successful upload, fetch Drive metadata to store modifiedTime
-      const remoteList = await this.driveAdapter.list()
+      // After successful upload, fetch remote metadata to store modifiedTime
+      const remoteList = await this.adapter.list()
       const remote = remoteList.find((r) => r.path === note.path)
       if (remote) {
         await db.syncMeta.put({
@@ -75,16 +74,16 @@ export class SyncEngine {
   }
 
   private async pullRemoteChanges(): Promise<void> {
-    const { changedIds, nextPageToken } = await this.driveAdapter.pollChanges(this.pageToken)
-    this.pageToken = nextPageToken
+    const { changedIds, nextToken } = await this.adapter.pollChanges(this.pageToken)
+    this.pageToken = nextToken
 
     for (const driveId of changedIds) {
       const meta = await db.syncMeta.where('driveFileId').equals(driveId).first()
 
-      const remoteNote = await this.driveAdapter.read(driveId)
+      const remoteNote = await this.adapter.read(driveId)
 
       if (!meta) {
-        // Brand new note from Drive — just save it
+        // Brand new note from remote — just save it
         const id = `drive-${driveId}`
         await db.notes.put({
           id,
@@ -143,6 +142,7 @@ export class SyncEngine {
         localContent: localNote.content,
         remoteContent: remoteNote.content,
         basePath: localNote.path,
+        baseContent: base,
       })
     }
   }
