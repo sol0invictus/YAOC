@@ -9,9 +9,11 @@ import {
   folderOutline,
   cloudOutline,
   documentTextOutline,
+  refreshOutline,
 } from 'ionicons/icons'
 import { useState, useMemo, useCallback } from 'react'
 import { useHistory } from 'react-router-dom'
+import { useVault } from '../hooks/useVault'
 import type { NoteRef } from '../storage/types'
 import { buildPathTree } from '../utils/pathTree'
 import FolderTree from './FolderTree'
@@ -100,6 +102,7 @@ export default function Sidebar({
   )
 
   const history = useHistory()
+  const { refresh } = useVault()
 
   const recentNoteIds = useMemo(() => loadRecentNotes(), [activeNoteId])
   const recentNotes = useMemo(
@@ -230,6 +233,14 @@ export default function Sidebar({
                   onToggle={toggleFiles}
                   actions={
                     <>
+                      <button
+                        className="sidebar-action-btn"
+                        title="Refresh files"
+                        style={{ fontSize: '0.8rem', padding: '2px 4px' }}
+                        onClick={() => refresh()}
+                      >
+                        <IonIcon icon={refreshOutline} />
+                      </button>
                       <button
                         className="sidebar-action-btn"
                         title="Collapse all folders"
