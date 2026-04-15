@@ -581,14 +581,22 @@ export default function PreviewPane({
     })
   }, [html, resolveMedia])
 
-  // ── Resolve yaoa:// attachment URIs in standard images ─────────────────────
+  // ── Resolve vault image URIs in standard <img> tags ───────────────────────
+  // Handles both legacy yaoa:// URIs and new relative paths (images/abc.png).
   useEffect(() => {
     if (!resolveImageSrc || !containerRef.current) return
     containerRef.current
-      .querySelectorAll<HTMLImageElement>('img[src^="yaoa://"]')
+      .querySelectorAll<HTMLImageElement>('img')
       .forEach(async (img) => {
         const src = img.getAttribute('src')
         if (!src) return
+        // Skip already-resolved absolute URLs and data/blob URIs
+        if (
+          src.startsWith('http://') ||
+          src.startsWith('https://') ||
+          src.startsWith('blob:') ||
+          src.startsWith('data:')
+        ) return
         const url = await resolveImageSrc(src)
         if (url) img.setAttribute('src', url)
       })

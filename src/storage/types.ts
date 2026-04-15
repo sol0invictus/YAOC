@@ -48,6 +48,8 @@ export interface VaultAdapter {
   delete(id: string): Promise<void>
   /** Read raw bytes — used for images, PDFs, etc. in LocalFS vaults. */
   readBlob?(id: string): Promise<{ blob: Blob; mimeType: string } | null>
+  /** Write raw bytes to a path (creates parent dirs as needed). */
+  writeBlob?(path: string, blob: Blob): Promise<void>
   watch?(cb: (changed: NoteRef[]) => void): () => void
 }
 

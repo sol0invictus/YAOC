@@ -129,6 +129,20 @@ export class LocalFSAdapter implements VaultAdapter {
     }
   }
 
+  async writeBlob(path: string, blob: Blob): Promise<void> {
+    const parts = path.split('/')
+    const filename = parts.pop()!
+    let dir = this.dirHandle
+    for (const part of parts) {
+      dir = await dir.getDirectoryHandle(part, { create: true })
+    }
+    const fh = await dir.getFileHandle(filename, { create: true })
+    this.cache.set(path, fh)
+    const writable = await fh.createWritable()
+    await writable.write(blob)
+    await writable.close()
+  }
+
   async write(id: string, path: string, content: string): Promise<void> {
     const parts = path.split('/')
     const filename = parts.pop()!

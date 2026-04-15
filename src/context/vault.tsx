@@ -156,29 +156,103 @@ export function VaultProvider({
   )
 
   // ── Attachments ───────────────────────────────────────────────────────────
-  // Attachments are always stored in the default (IndexedDB) DB regardless of
-  // vault type, since LocalFS and cloud vaults don't have a blob store yet.
 
+  /**
+   * Save a pasted/dropped media blob into the vault's `images/` subfolder.
+   *
+   * - LocalFS vaults: writes a real file to disk via adapter.writeBlob.
+   * - IndexedDB vaults: stores the blob in the attachments table keyed by path.
+   *
+   * Returns a vault-relative path like `images/abc123.png` which is embedded
+   * directly in markdown as `![image](images/abc123.png)`.
+   */
   const saveAttachment = useCallback(
     async (blob: Blob, fileName: string): Promise<string> => {
+      const ext = (blob.type.split('/')[1] ?? fileName.split('.').pop() ?? 'png')
+        .replace('jpeg', 'jpg')
       const id = nanoid()
-      const ext = fileName.split('.').pop() || 'png'
-      const name = `${id}.${ext}`
-      await defaultDb.attachments.put({
-        id,
-        blob,
-        mimeType: blob.type || 'image/png',
-        name,
-        originalName: fileName,
-        createdAt: Date.now(),
-      })
-      return `yaoa://attachments/${id}.${ext}`
+      const path = `images/${id}.${ext}`
+
+      if (adapter.writeBlob) {
+        // LocalFS: write to disk; IndexedDB: write to attachments table
+        await adapter.writeBlob(path, blob)
+      } else {
+        // Fallback for adapters that don't implement writeBlob (GDrive etc.)
+        await defaultDb.attachments.put({
+          id,
+          blob,
+          mimeType: blob.type || `image/${ext}`,
+          name: `${id}.${ext}`,
+          originalName: fileName,
+          createdAt: Date.now(),
+        })
+        return `yaoa://attachments/${id}.${ext}`
+      }
+
+      return path
     },
-    [],
+    [adapter],
   )
+
+  /**
+   * Resolve any image reference to a blob URL.
+   * Handles:
+   *   - New relative paths:  "images/abc.png"
+   *   - Legacy URIs:         "yaoa://attachments/abc"
+   */
+  const getAttachmentUrl = useCallback(async (uri: string): Promise<string | null> => {
+    // ── Legacy yaoa:// URIs ───────────────────────────────────────────────
+    if (uri.startsWith('yaoa://attachments/')) {
+      const m = uri.match(/^yaoa:\/\/attachments\/([^.]+)/)
+      if (!m) return null
+      const id = m[1]
+      if (blobUrlCache.has(id)) return blobUrlCache.get(id)!
+      const att = await defaultDb.attachments.get(id)
+      if (!att) return null
+      const url = URL.createObjectURL(att.blob)
+      blobUrlCache.set(id, url)
+      return url
+    }
+
+    // ── Relative paths (images/abc.png, etc.) ────────────────────────────
+    const cacheKey = `rel:${uri}`
+    if (blobUrlCache.has(cacheKey)) return blobUrlCache.get(cacheKey)!
+
+    // For LocalFS: read the real file from disk
+    if (adapter.readBlob) {
+      const result = await adapter.readBlob(uri)
+      if (result) {
+        const url = URL.createObjectURL(result.blob)
+        blobUrlCache.set(cacheKey, url)
+        return url
+      }
+    }
+
+    // For IndexedDB: look up the blob stored by path
+    const att = await vaultDb.attachments.get(uri)
+    if (!att) return null
+    const url = URL.createObjectURL(att.blob)
+    blobUrlCache.set(cacheKey, url)
+    return url
+  }, [adapter, vaultDb])
 
   const getAttachmentByName = useCallback(
     async (fileName: string): Promise<string | null> => {
+      // Try path-based lookup first (new style: images/abc.png)
+      const pathKey = `images/${fileName}`
+      const cacheKey = `rel:${pathKey}`
+      if (blobUrlCache.has(cacheKey)) return blobUrlCache.get(cacheKey)!
+
+      if (adapter.readBlob) {
+        const result = await adapter.readBlob(pathKey)
+        if (result) {
+          const url = URL.createObjectURL(result.blob)
+          blobUrlCache.set(cacheKey, url)
+          return url
+        }
+      }
+
+      // Fall back to legacy originalName search in attachments table
       const byOriginal = await defaultDb.attachments
         .where('originalName')
         .equals(fileName)
@@ -192,8 +266,7 @@ export function VaultProvider({
       const all = await defaultDb.attachments.toArray()
       const lower = fileName.toLowerCase()
       const match = all.find(
-        (a) =>
-          a.originalName?.toLowerCase() === lower || a.name.toLowerCase() === lower,
+        (a) => a.originalName?.toLowerCase() === lower || a.name.toLowerCase() === lower,
       )
       if (!match) return null
       if (blobUrlCache.has(match.id)) return blobUrlCache.get(match.id)!
@@ -201,20 +274,8 @@ export function VaultProvider({
       blobUrlCache.set(match.id, url)
       return url
     },
-    [],
+    [adapter],
   )
-
-  const getAttachmentUrl = useCallback(async (uri: string): Promise<string | null> => {
-    const m = uri.match(/^yaoa:\/\/attachments\/([^.]+)/)
-    if (!m) return null
-    const id = m[1]
-    if (blobUrlCache.has(id)) return blobUrlCache.get(id)!
-    const att = await defaultDb.attachments.get(id)
-    if (!att) return null
-    const url = URL.createObjectURL(att.blob)
-    blobUrlCache.set(id, url)
-    return url
-  }, [])
 
   // ── Drive import ──────────────────────────────────────────────────────────
 

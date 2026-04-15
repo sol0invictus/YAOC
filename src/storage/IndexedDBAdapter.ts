@@ -32,6 +32,19 @@ export class IndexedDBAdapter implements VaultAdapter {
     })
   }
 
+  async writeBlob(path: string, blob: Blob): Promise<void> {
+    const filename = path.split('/').pop() ?? path
+    const ext = filename.includes('.') ? filename.split('.').pop()! : 'bin'
+    await this.db.attachments.put({
+      id: path,          // use the path as the stable key
+      blob,
+      mimeType: blob.type || `image/${ext}`,
+      name: filename,
+      originalName: path,
+      createdAt: Date.now(),
+    })
+  }
+
   async delete(id: string): Promise<void> {
     await this.db.notes.delete(id)
     await this.db.syncMeta.delete(id)
