@@ -46,8 +46,8 @@ export class NotesDB extends Dexie {
   tags!: Table<DBTag>
   attachments!: Table<DBAttachment>
 
-  constructor() {
-    super('yaoa-notes')
+  constructor(name = 'yaoa-notes') {
+    super(name)
     this.version(1).stores({
       notes: 'id, path, lastModified, dirty',
       syncMeta: 'noteId',
@@ -79,4 +79,22 @@ export class NotesDB extends Dexie {
   }
 }
 
-export const db = new NotesDB()
+// ── Per-vault DB factory ────────────────────────────────────────────────────
+
+const _dbInstances = new Map<string, NotesDB>()
+
+/**
+ * Returns (or creates) a NotesDB instance for the given vault ID.
+ * The special ID 'default' maps to the original 'yaoa-notes' database so
+ * existing data is preserved without any migration.
+ */
+export function getVaultDB(vaultId: string): NotesDB {
+  const dbName = vaultId === 'default' ? 'yaoa-notes' : `yaoa-vault-${vaultId}`
+  if (!_dbInstances.has(dbName)) {
+    _dbInstances.set(dbName, new NotesDB(dbName))
+  }
+  return _dbInstances.get(dbName)!
+}
+
+/** Singleton for backward-compat imports that reference `db` directly. */
+export const db = getVaultDB('default')

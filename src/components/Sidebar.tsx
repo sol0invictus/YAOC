@@ -1,5 +1,14 @@
 import { IonIcon, IonSearchbar } from '@ionic/react'
-import { addOutline, chevronBackOutline, chevronForwardOutline, timeOutline, documentTextOutline } from 'ionicons/icons'
+import {
+  addOutline,
+  chevronBackOutline,
+  chevronForwardOutline,
+  timeOutline,
+  documentTextOutline,
+  swapHorizontalOutline,
+  folderOutline,
+  cloudOutline,
+} from 'ionicons/icons'
 import { useState, useMemo, useCallback } from 'react'
 import { useHistory } from 'react-router-dom'
 import type { NoteRef } from '../storage/types'
@@ -7,6 +16,7 @@ import { buildPathTree } from '../utils/pathTree'
 import FolderTree from './FolderTree'
 import TagBrowser from './TagBrowser'
 import OutlinePanel from './OutlinePanel'
+import type { VaultEntry } from '../hooks/useVaultRegistry'
 
 type SortMode = 'name-asc' | 'name-desc' | 'modified-desc' | 'modified-asc'
 
@@ -28,13 +38,15 @@ export function recordRecentNote(id: string) {
 
 interface SidebarProps {
   notes: NoteRef[]
+  activeVault: VaultEntry | null
   onCreateNote: () => void
+  onSwitchVault: () => void
   collapsed: boolean
   onToggle: () => void
   activeNoteId: string | null
 }
 
-export default function Sidebar({ notes, onCreateNote, collapsed, onToggle, activeNoteId }: SidebarProps) {
+export default function Sidebar({ notes, activeVault, onCreateNote, onSwitchVault, collapsed, onToggle, activeNoteId }: SidebarProps) {
   const [filter, setFilter] = useState('')
   const [sortMode, setSortMode] = useState<SortMode>(() =>
     (localStorage.getItem('file-sort') as SortMode) ?? 'name-asc',
@@ -100,9 +112,22 @@ export default function Sidebar({ notes, onCreateNote, collapsed, onToggle, acti
       {!collapsed && (
         <>
           <div className="sidebar-inner">
-            {/* Header */}
-            <div className="sidebar-header">
-              <span className="sidebar-brand">YAOA</span>
+            {/* Vault header */}
+            <div className="sidebar-vault-header">
+              <button
+                className="sidebar-vault-btn"
+                onClick={onSwitchVault}
+                title="Switch vault"
+              >
+                <IonIcon
+                  icon={activeVault?.type === 'local-fs' ? folderOutline : cloudOutline}
+                  className="sidebar-vault-icon"
+                />
+                <span className="sidebar-vault-name">
+                  {activeVault?.name ?? 'No vault'}
+                </span>
+                <IonIcon icon={swapHorizontalOutline} className="sidebar-vault-switch-icon" />
+              </button>
               <button className="sidebar-action-btn" onClick={onCreateNote} title="New note">
                 <IonIcon icon={addOutline} />
               </button>

@@ -2085,6 +2085,66 @@ ion-badge {
 .sync-status-badge--error { background: rgba(243,139,168,0.15); color: var(--accent-red); }
 .sync-status-badge--offline { background: rgba(108,112,134,0.15); color: var(--text-faint); }
 
+/* ── Vault & Sync modal sections ── */
+.sync-section { padding: 18px 20px; }
+.sync-section-label {
+  font-size: 0.7rem; font-weight: 700; letter-spacing: 0.08em;
+  text-transform: uppercase; color: var(--text-faint); margin-bottom: 12px;
+}
+.sync-divider { height: 1px; background: var(--border-color); margin: 0; }
+
+.sync-vault-row {
+  display: flex; align-items: center; gap: 12px;
+  padding: 10px 12px; border-radius: 8px; background: var(--bg-secondary);
+}
+.sync-vault-icon { font-size: 1.4rem; color: var(--accent-secondary); flex-shrink: 0; }
+.sync-vault-info { flex: 1; min-width: 0; }
+.sync-vault-name {
+  font-size: 0.88rem; font-weight: 600; color: var(--text-normal);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: block;
+}
+.sync-vault-desc { font-size: 0.75rem; color: var(--text-muted); }
+
+/* ── GDrive folder picker ── */
+.folder-picker { display: flex; flex-direction: column; }
+.folder-picker-title {
+  padding: 14px 20px 0; font-size: 0.88rem; font-weight: 600; color: var(--text-normal);
+}
+.folder-picker-breadcrumb {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 2px;
+  padding: 10px 20px 8px; border-bottom: 1px solid var(--border-color);
+  min-height: 36px;
+}
+.folder-picker-sep { color: var(--text-faint); font-size: 0.75rem; padding: 0 2px; }
+.folder-picker-crumb {
+  background: none; border: none; cursor: pointer;
+  font-size: 0.82rem; color: var(--text-muted); padding: 2px 4px; border-radius: 4px;
+}
+.folder-picker-crumb:hover { color: var(--text-normal); background: var(--bg-hover); }
+.folder-picker-crumb--active { color: var(--text-normal); font-weight: 600; cursor: default; }
+.folder-picker-crumb--active:hover { background: none; }
+
+.folder-picker-list {
+  flex: 1; min-height: 140px; max-height: 240px; overflow-y: auto;
+  padding: 6px 8px;
+}
+.folder-picker-status {
+  padding: 20px; text-align: center; font-size: 0.82rem; color: var(--text-faint);
+}
+.folder-picker-status--error { color: var(--accent-red); }
+.folder-picker-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 12px; border-radius: 6px; cursor: pointer;
+}
+.folder-picker-item:hover { background: var(--bg-hover); }
+.folder-picker-icon { color: var(--accent-secondary); font-size: 1rem; flex-shrink: 0; }
+.folder-picker-name { flex: 1; font-size: 0.85rem; color: var(--text-normal); }
+.folder-picker-chevron { color: var(--text-faint); font-size: 0.75rem; flex-shrink: 0; }
+.folder-picker-actions {
+  display: flex; align-items: center; gap: 8px; justify-content: flex-end;
+  padding: 12px 16px; border-top: 1px solid var(--border-color);
+}
+
 /* ============================================
    Button utilities
    ============================================ */
@@ -2100,3 +2160,326 @@ ion-badge {
 .btn--ghost:hover:not(:disabled) { background: var(--bg-hover); color: var(--text-normal); }
 .btn--danger { background: transparent; color: var(--accent-red); border: 1px solid rgba(243,139,168,0.3); }
 .btn--danger:hover:not(:disabled) { background: rgba(243,139,168,0.1); }
+
+/* ============================================
+   Sidebar vault header
+   ============================================ */
+
+.sidebar-vault-header {
+  padding: 8px 8px 4px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.sidebar-vault-btn {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--bg-hover);
+  border: 1px solid var(--border-subtle);
+  border-radius: 6px;
+  padding: 5px 8px;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.15s, border-color 0.15s;
+  overflow: hidden;
+}
+
+.sidebar-vault-btn:hover {
+  background: var(--bg-active);
+  border-color: var(--border-color);
+}
+
+.sidebar-vault-icon {
+  font-size: 0.85rem;
+  color: var(--accent-primary);
+  flex-shrink: 0;
+}
+
+.sidebar-vault-name {
+  flex: 1;
+  min-width: 0;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--text-normal);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sidebar-vault-switch-icon {
+  font-size: 0.75rem;
+  color: var(--text-faint);
+  flex-shrink: 0;
+}
+
+/* ============================================
+   Vault picker modal
+   ============================================ */
+
+.vault-picker-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.65);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9000;
+  backdrop-filter: blur(4px);
+}
+
+.vault-picker-dialog {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  width: 420px;
+  max-width: calc(100vw - 32px);
+  max-height: calc(100vh - 64px);
+  overflow-y: auto;
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.6);
+}
+
+.vault-picker-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 18px 20px 12px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.vault-picker-title {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text-normal);
+  letter-spacing: 0.02em;
+}
+
+.vault-picker-close {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  color: var(--text-faint);
+  font-size: 0.85rem;
+  padding: 4px 8px;
+  border-radius: 4px;
+  transition: color 0.15s, background 0.15s;
+}
+.vault-picker-close:hover {
+  color: var(--text-normal);
+  background: var(--bg-hover);
+}
+
+.vault-picker-section {
+  padding: 12px 16px;
+}
+
+.vault-picker-section-label {
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: var(--text-faint);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-bottom: 6px;
+  padding: 0 4px;
+}
+
+.vault-picker-divider {
+  height: 1px;
+  background: var(--border-subtle);
+  margin: 0 16px;
+}
+
+/* Existing vault item */
+.vault-picker-item {
+  display: flex;
+  align-items: center;
+  border-radius: 8px;
+  margin-bottom: 4px;
+  overflow: hidden;
+  border: 1px solid transparent;
+  transition: border-color 0.15s;
+}
+
+.vault-picker-item--active {
+  border-color: var(--accent-primary-dim);
+  background: var(--accent-primary-dim);
+}
+
+.vault-picker-item-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 10px 12px;
+  text-align: left;
+  border-radius: 8px;
+  transition: background 0.15s;
+}
+
+.vault-picker-item:not(.vault-picker-item--active) .vault-picker-item-main:hover {
+  background: var(--bg-hover);
+}
+
+.vault-picker-item-icon {
+  font-size: 1.1rem;
+  color: var(--accent-primary);
+  flex-shrink: 0;
+}
+
+.vault-picker-item-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.vault-picker-item-name {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-normal);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.vault-picker-item-type {
+  font-size: 0.7rem;
+  color: var(--text-faint);
+}
+
+.vault-picker-item-check {
+  font-size: 1rem;
+  color: var(--accent-primary);
+  flex-shrink: 0;
+}
+
+.vault-picker-item-delete {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 8px 10px;
+  color: var(--text-faint);
+  font-size: 0.9rem;
+  border-radius: 6px;
+  transition: color 0.15s, background 0.15s;
+  flex-shrink: 0;
+}
+.vault-picker-item-delete:hover {
+  color: var(--accent-red);
+  background: rgba(243, 139, 168, 0.1);
+}
+
+/* Action buttons (open folder / create) */
+.vault-picker-action {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: transparent;
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  padding: 10px 12px;
+  cursor: pointer;
+  width: 100%;
+  text-align: left;
+  color: var(--text-normal);
+  margin-bottom: 6px;
+  transition: background 0.15s, border-color 0.15s;
+}
+.vault-picker-action:hover:not(:disabled) {
+  background: var(--bg-hover);
+  border-color: var(--border-color);
+}
+.vault-picker-action:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.vault-picker-action ion-icon {
+  font-size: 1.25rem;
+  color: var(--accent-secondary);
+  flex-shrink: 0;
+}
+
+.vault-picker-action-title {
+  font-size: 0.83rem;
+  font-weight: 600;
+  color: var(--text-normal);
+  margin-bottom: 2px;
+}
+
+.vault-picker-action-sub {
+  font-size: 0.7rem;
+  color: var(--text-faint);
+}
+
+/* Create vault inline form */
+.vault-picker-create-form {
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 10px 12px;
+  margin-bottom: 6px;
+}
+
+.vault-picker-input {
+  width: 100%;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  padding: 7px 10px;
+  font-size: 0.85rem;
+  color: var(--text-normal);
+  outline: none;
+  font-family: inherit;
+  box-sizing: border-box;
+  transition: border-color 0.15s;
+}
+.vault-picker-input:focus { border-color: var(--accent-primary); }
+.vault-picker-input::placeholder { color: var(--text-faint); }
+
+.vault-picker-create-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.vault-picker-btn {
+  padding: 6px 14px;
+  border-radius: 6px;
+  border: none;
+  cursor: pointer;
+  font-size: 0.8rem;
+  font-weight: 500;
+  transition: opacity 0.1s, background 0.15s;
+}
+.vault-picker-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.vault-picker-btn--primary {
+  background: var(--accent-primary);
+  color: var(--bg-tertiary);
+}
+.vault-picker-btn--primary:hover:not(:disabled) { opacity: 0.85; }
+.vault-picker-btn--ghost {
+  background: transparent;
+  color: var(--text-muted);
+  border: 1px solid var(--border-color);
+}
+.vault-picker-btn--ghost:hover:not(:disabled) {
+  background: var(--bg-hover);
+  color: var(--text-normal);
+}
+
+.vault-picker-error {
+  margin: 0 16px 14px;
+  padding: 8px 12px;
+  background: rgba(243, 139, 168, 0.1);
+  border: 1px solid rgba(243, 139, 168, 0.3);
+  border-radius: 6px;
+  font-size: 0.78rem;
+  color: var(--accent-red);
+}

@@ -2,7 +2,6 @@ import { useState, useCallback, useMemo, useEffect } from 'react'
 import { IonApp, IonAlert } from '@ionic/react'
 import { IonReactRouter } from '@ionic/react-router'
 import { Route, Redirect, Switch, useLocation, useHistory } from 'react-router-dom'
-import { initGDriveAuth } from './auth/gdrive'
 import { initOneDriveAuth } from './auth/onedrive'
 import Home from './pages/Home'
 import Editor from './pages/Editor'
@@ -12,17 +11,19 @@ import TitleBar from './components/TitleBar'
 import TabBar from './components/TabBar'
 import ConflictModal from './components/ConflictModal'
 import SyncProviderModal from './components/SyncProviderModal'
-import { useVault } from './hooks/useVault'
+import VaultPicker from './components/VaultPicker'
+import { VaultProvider, useVault } from './context/vault'
+import { useVaultRegistry, type VaultEntry } from './hooks/useVaultRegistry'
 import { useSync } from './hooks/useSync'
 import { ActiveNoteProvider } from './context/activeNote'
 import FullTextSearch from './components/FullTextSearch'
 
-// Initialize auth clients once at module load
-const gdriveClientId = import.meta.env.VITE_GDRIVE_CLIENT_ID as string | undefined
-if (gdriveClientId) initGDriveAuth(gdriveClientId)
-
+// OneDrive client ID can be initialized at module load (no external script dependency)
 const onedriveClientId = import.meta.env.VITE_ONEDRIVE_CLIENT_ID as string | undefined
 if (onedriveClientId) initOneDriveAuth(onedriveClientId)
+
+// GDrive client ID — stored for lazy init once the GIS script has loaded
+const gdriveClientId = import.meta.env.VITE_GDRIVE_CLIENT_ID as string | undefined
 
 function loadTabs(): string[] {
   try { return JSON.parse(localStorage.getItem('open-tabs') ?? '[]') } catch { return [] }
@@ -32,19 +33,30 @@ function saveTabs(tabs: string[]) {
   localStorage.setItem('open-tabs', JSON.stringify(tabs))
 }
 
-function AppShell() {
-  const { notes, createNote } = useVault()
+// ── Inner shell — rendered inside VaultProvider so useVault() works ──────────
+
+function AppShellInner({
+  activeVault,
+  onSwitchVault,
+}: {
+  activeVault: VaultEntry | null
+  onSwitchVault: () => void
+}) {
+  const { notes, localFolderName, createNote } = useVault()
   const {
     status: syncStatus,
     signedIn,
     provider,
+    gDriveFolderName,
     conflicts,
-    handleSignIn,
+    authenticate,
+    connect,
+    changeGDriveFolder,
     handleSignOut,
     manualSync,
     resolveConflict,
     dismissConflict,
-  } = useSync()
+  } = useSync(gdriveClientId)
   const location = useLocation()
   const history = useHistory()
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
@@ -81,7 +93,6 @@ function AppShell() {
     setOpenTabs((prev) => {
       const next = prev.filter((t) => t !== id)
       saveTabs(next)
-      // If closing the active tab, navigate to adjacent tab or home
       if (id === activeNoteId) {
         const idx = prev.indexOf(id)
         const target = next[Math.min(idx, next.length - 1)]
@@ -105,7 +116,9 @@ function AppShell() {
     <div className="app-layout">
       <Sidebar
         notes={notes}
+        activeVault={activeVault}
         onCreateNote={() => setShowNewNote(true)}
+        onSwitchVault={onSwitchVault}
         collapsed={sidebarCollapsed}
         onToggle={() => setSidebarCollapsed((c) => !c)}
         activeNoteId={activeNoteId}
@@ -143,10 +156,15 @@ function AppShell() {
         onClose={() => setShowSyncModal(false)}
         signedIn={signedIn}
         provider={provider}
+        gDriveFolderName={gDriveFolderName}
         syncStatus={syncStatus}
-        onSignIn={async (p) => { await handleSignIn(p); setShowSyncModal(false) }}
+        localFolderName={localFolderName}
+        onAuthenticate={authenticate}
+        onConnect={connect}
+        onChangeGDriveFolder={changeGDriveFolder}
         onSignOut={() => { handleSignOut(); setShowSyncModal(false) }}
         onManualSync={manualSync}
+        onOpenLocalFolder={async () => { /* vault system handles folder opening now */ }}
       />
 
       {conflicts[0] && (
@@ -171,6 +189,65 @@ function AppShell() {
         ]}
       />
     </div>
+  )
+}
+
+// ── Outer shell — owns vault registry + picker state ─────────────────────────
+
+function AppShell() {
+  const {
+    vaults,
+    activeVault,
+    adapterState,
+    createIndexedDBVault,
+    openFolderVault,
+    reopenLocalFSVault,
+    switchVault,
+    deleteVault,
+  } = useVaultRegistry()
+
+  const [showPicker, setShowPicker] = useState(false)
+
+  // No vault is ready → keep picker open (non-dismissible)
+  const pickerOpen = showPicker || !adapterState
+
+  return (
+    <>
+      {adapterState && (
+        <VaultProvider
+          key={activeVault?.id ?? 'none'}
+          adapter={adapterState.adapter}
+          vaultDb={adapterState.vaultDb}
+          localFolderName={adapterState.localFolderName}
+        >
+          <AppShellInner
+            activeVault={activeVault}
+            onSwitchVault={() => setShowPicker(true)}
+          />
+        </VaultProvider>
+      )}
+
+      {pickerOpen && (
+        <VaultPicker
+          vaults={vaults}
+          activeVaultId={activeVault?.id ?? null}
+          dismissible={showPicker && !!adapterState}
+          onClose={() => setShowPicker(false)}
+          onCreateVault={async (name) => {
+            await createIndexedDBVault(name)
+          }}
+          onOpenFolder={async () => {
+            await openFolderVault()
+          }}
+          onSwitchVault={(id) => {
+            switchVault(id)
+            setShowPicker(false)
+          }}
+          onReopenLocalFS={reopenLocalFSVault}
+          onDeleteVault={deleteVault}
+        />
+      )}
+    </>
   )
 }
 

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useHistory } from 'react-router-dom'
-import { db } from '../storage/db'
+import { useVault } from '../hooks/useVault'
 
 interface TagCount {
   tag: string
@@ -8,13 +8,14 @@ interface TagCount {
 }
 
 export default function TagBrowser() {
+  const { vaultDb } = useVault()
   const [tags, setTags] = useState<TagCount[]>([])
   const [expanded, setExpanded] = useState(false)
   const history = useHistory()
 
   useEffect(() => {
     async function loadTags() {
-      const allTags = await db.tags.toArray()
+      const allTags = await vaultDb.tags.toArray()
       const counts = new Map<string, Set<string>>()
       for (const t of allTags) {
         if (!counts.has(t.tag)) counts.set(t.tag, new Set())
@@ -26,7 +27,7 @@ export default function TagBrowser() {
       setTags(sorted)
     }
     loadTags()
-  }, [])
+  }, [vaultDb])
 
   if (tags.length === 0) return null
 
