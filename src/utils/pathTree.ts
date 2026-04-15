@@ -1,6 +1,6 @@
 /** Convert flat NoteRef[] paths into a folder tree */
 
-import type { NoteRef } from '../storage/types'
+import type { NoteRef, FileKind } from '../storage/types'
 
 export interface TreeNode {
   name: string
@@ -8,6 +8,7 @@ export interface TreeNode {
   isFolder: boolean
   children: TreeNode[]
   noteId?: string
+  fileKind?: FileKind
 }
 
 export function buildPathTree(notes: NoteRef[]): TreeNode[] {
@@ -29,6 +30,7 @@ export function buildPathTree(notes: NoteRef[]): TreeNode[] {
           isFolder: false,
           children: [],
           noteId: note.id,
+          fileKind: note.fileKind,
         })
       } else {
         let folder = current.children.find((c) => c.isFolder && c.name === part)

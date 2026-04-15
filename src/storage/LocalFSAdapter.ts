@@ -1,4 +1,43 @@
-import type { VaultAdapter, NoteRef, Note } from './types'
+import type { VaultAdapter, NoteRef, Note, FileKind } from './types'
+
+// ── File-kind detection ──────────────────────────────────────────────────────
+
+const IMAGE_EXTS  = new Set(['png','jpg','jpeg','gif','svg','webp','bmp','ico','avif','tiff'])
+const AUDIO_EXTS  = new Set(['mp3','wav','ogg','flac','aac','m4a','opus'])
+const VIDEO_EXTS  = new Set(['mp4','webm','mov','mkv','avi','m4v'])
+const PDF_EXTS    = new Set(['pdf'])
+const TEXT_EXTS   = new Set([
+  'txt','md','ts','tsx','js','jsx','json','yaml','yml','toml','css','scss',
+  'html','xml','sh','bash','zsh','py','rs','go','rb','php','java','c','cpp',
+  'h','hpp','cs','swift','kt','r','sql','lua','vim','ini','conf','env',
+])
+
+function mimeFor(ext: string): string {
+  if (IMAGE_EXTS.has(ext)) {
+    const map: Record<string, string> = {
+      png:'image/png', jpg:'image/jpeg', jpeg:'image/jpeg',
+      gif:'image/gif', svg:'image/svg+xml', webp:'image/webp',
+      bmp:'image/bmp', ico:'image/x-icon', avif:'image/avif', tiff:'image/tiff',
+    }
+    return map[ext] ?? 'image/png'
+  }
+  if (AUDIO_EXTS.has(ext)) return ext === 'mp3' ? 'audio/mpeg' : `audio/${ext}`
+  if (VIDEO_EXTS.has(ext)) return ext === 'mp4' ? 'video/mp4' : `video/${ext}`
+  if (PDF_EXTS.has(ext))   return 'application/pdf'
+  return 'text/plain'
+}
+
+function fileKindFor(ext: string): FileKind {
+  if (ext === 'md')            return 'markdown'
+  if (IMAGE_EXTS.has(ext))    return 'image'
+  if (AUDIO_EXTS.has(ext))    return 'audio'
+  if (VIDEO_EXTS.has(ext))    return 'video'
+  if (PDF_EXTS.has(ext))      return 'pdf'
+  if (TEXT_EXTS.has(ext))     return 'text'
+  return 'binary'
+}
+
+// ── Adapter ──────────────────────────────────────────────────────────────────
 
 export class LocalFSAdapter implements VaultAdapter {
   readonly type = 'local-fs' as const
@@ -9,8 +48,11 @@ export class LocalFSAdapter implements VaultAdapter {
     this.dirHandle = dirHandle
   }
 
+  get folderName(): string {
+    return this.dirHandle.name
+  }
+
   static async open(): Promise<LocalFSAdapter> {
-    // showDirectoryPicker is a Chrome/Edge-only API (File System Access)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const handle = await (window as any).showDirectoryPicker({ mode: 'readwrite' }) as FileSystemDirectoryHandle
     return new LocalFSAdapter(handle)
@@ -28,41 +70,62 @@ export class LocalFSAdapter implements VaultAdapter {
     refs: NoteRef[],
   ): Promise<void> {
     for await (const [name, handle] of dir) {
+      if (name.startsWith('.')) continue  // skip hidden entries
+
       if (handle.kind === 'directory') {
-        if (!name.startsWith('.')) {
-          await this.walkDir(handle as FileSystemDirectoryHandle, `${prefix}${name}/`, refs)
-        }
-      } else if (name.endsWith('.md')) {
-        const file = await (handle as FileSystemFileHandle).getFile()
+        await this.walkDir(handle as FileSystemDirectoryHandle, `${prefix}${name}/`, refs)
+      } else {
+        const fh = handle as FileSystemFileHandle
+        const ext = name.includes('.') ? name.split('.').pop()!.toLowerCase() : ''
+        const kind = fileKindFor(ext)
+
+        // Skip binary files we can't do anything useful with
+        if (kind === 'binary') continue
+
+        const file = await fh.getFile()
         const path = `${prefix}${name}`
         const id = path
-        this.cache.set(id, handle as FileSystemFileHandle)
+        this.cache.set(id, fh)
+
         refs.push({
           id,
           path,
-          name: name.replace(/\.md$/, ''),
+          // For markdown, strip extension from display name
+          name: kind === 'markdown' ? name.replace(/\.md$/, '') : name,
           lastModified: file.lastModified,
+          fileKind: kind,
         })
       }
     }
   }
 
   async read(id: string): Promise<Note> {
-    let fh = this.cache.get(id)
-    if (!fh) {
-      // re-walk to find it
-      await this.list()
-      fh = this.cache.get(id)
-    }
-    if (!fh) throw new Error(`File not found: ${id}`)
+    const fh = await this._getHandle(id)
     const file = await fh.getFile()
-    const content = await file.text()
+    const ext = id.includes('.') ? id.split('.').pop()!.toLowerCase() : ''
+    const kind = fileKindFor(ext)
+    // For binary-ish files, return empty content — use readBlob() instead
+    const content = (kind === 'image' || kind === 'audio' || kind === 'video' || kind === 'pdf')
+      ? ''
+      : await file.text()
     return {
       id,
       path: id,
-      name: id.replace(/^.*\//, '').replace(/\.md$/, ''),
+      name: kind === 'markdown' ? id.replace(/^.*\//, '').replace(/\.md$/, '') : id.replace(/^.*\//, ''),
       content,
       lastModified: file.lastModified,
+      fileKind: kind,
+    }
+  }
+
+  async readBlob(id: string): Promise<{ blob: Blob; mimeType: string } | null> {
+    try {
+      const fh = await this._getHandle(id)
+      const file = await fh.getFile()
+      const ext = id.includes('.') ? id.split('.').pop()!.toLowerCase() : ''
+      return { blob: file, mimeType: mimeFor(ext) }
+    } catch {
+      return null
     }
   }
 
@@ -91,5 +154,15 @@ export class LocalFSAdapter implements VaultAdapter {
     }
     await dir.removeEntry(fh.name)
     this.cache.delete(id)
+  }
+
+  private async _getHandle(id: string): Promise<FileSystemFileHandle> {
+    let fh = this.cache.get(id)
+    if (!fh) {
+      await this.list()  // re-walk to populate cache
+      fh = this.cache.get(id)
+    }
+    if (!fh) throw new Error(`File not found: ${id}`)
+    return fh
   }
 }

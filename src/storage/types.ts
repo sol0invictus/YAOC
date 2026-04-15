@@ -1,8 +1,11 @@
+export type FileKind = 'markdown' | 'image' | 'text' | 'pdf' | 'audio' | 'video' | 'binary'
+
 export interface NoteRef {
   id: string        // stable unique ID (path or Drive file ID)
   path: string      // e.g. "folder/note.md"
-  name: string      // display name without .md
+  name: string      // display name (without .md for markdown files)
   lastModified: number  // epoch ms
+  fileKind?: FileKind   // undefined → 'markdown' (backward compat)
 }
 
 export interface Note extends NoteRef {
@@ -43,6 +46,8 @@ export interface VaultAdapter {
   read(id: string): Promise<Note>
   write(id: string, path: string, content: string): Promise<void>
   delete(id: string): Promise<void>
+  /** Read raw bytes — used for images, PDFs, etc. in LocalFS vaults. */
+  readBlob?(id: string): Promise<{ blob: Blob; mimeType: string } | null>
   watch?(cb: (changed: NoteRef[]) => void): () => void
 }
 

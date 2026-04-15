@@ -1,9 +1,26 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import type { TreeNode } from '../utils/pathTree'
-import { folderOutline, folderOpenOutline, documentTextOutline, chevronForward, chevronDown } from 'ionicons/icons'
+import {
+  folderOutline, folderOpenOutline, documentTextOutline,
+  chevronForward, chevronDown,
+  imageOutline, musicalNotesOutline, videocamOutline,
+  documentOutline, codeSlashOutline,
+} from 'ionicons/icons'
 import { IonIcon } from '@ionic/react'
 import { useHistory } from 'react-router-dom'
 import { useVault } from '../hooks/useVault'
+import type { FileKind } from '../storage/types'
+
+function fileIcon(kind?: FileKind) {
+  switch (kind) {
+    case 'image':    return imageOutline
+    case 'audio':    return musicalNotesOutline
+    case 'video':    return videocamOutline
+    case 'pdf':      return documentOutline
+    case 'text':     return codeSlashOutline
+    default:         return documentTextOutline
+  }
+}
 
 interface FolderTreeProps {
   nodes: TreeNode[]
@@ -94,20 +111,22 @@ function TreeItem({
   }
 
   const isActive = node.noteId != null && node.noteId === activeNoteId
+  const isMarkdown = !node.fileKind || node.fileKind === 'markdown'
 
   return (
     <div
-      className={`folder-tree-item ${isActive ? 'folder-tree-item--active' : ''}`}
+      className={`folder-tree-item ${isActive ? 'folder-tree-item--active' : ''} ${!isMarkdown ? 'folder-tree-item--asset' : ''}`}
       onClick={() => !renaming && node.noteId && history.push(`/editor/${node.noteId}`)}
-      onContextMenu={(e) => node.noteId && onContextMenu(e, node.noteId, node.name)}
+      onContextMenu={(e) => node.noteId && isMarkdown && onContextMenu(e, node.noteId, node.name)}
       onDoubleClick={() => {
+        if (!isMarkdown) return
         setRenameDraft(node.name)
         setRenaming(true)
         setTimeout(() => { renameInputRef.current?.focus(); renameInputRef.current?.select() }, 0)
       }}
     >
       <span style={{ width: 10 }} />
-      <IonIcon icon={documentTextOutline} style={{ flexShrink: 0 }} />
+      <IonIcon icon={fileIcon(node.fileKind)} style={{ flexShrink: 0, color: !isMarkdown ? 'var(--accent-secondary)' : undefined }} />
       {renaming ? (
         <input
           ref={renameInputRef}

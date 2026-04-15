@@ -3,11 +3,12 @@ import {
   addOutline,
   chevronBackOutline,
   chevronForwardOutline,
-  timeOutline,
-  documentTextOutline,
+  chevronDownOutline,
+  chevronForward,
   swapHorizontalOutline,
   folderOutline,
   cloudOutline,
+  documentTextOutline,
 } from 'ionicons/icons'
 import { useState, useMemo, useCallback } from 'react'
 import { useHistory } from 'react-router-dom'
@@ -46,19 +47,61 @@ interface SidebarProps {
   activeNoteId: string | null
 }
 
-export default function Sidebar({ notes, activeVault, onCreateNote, onSwitchVault, collapsed, onToggle, activeNoteId }: SidebarProps) {
+// ── Collapsible section header (VSCode-style) ────────────────────────────────
+
+function SectionHeader({
+  label,
+  open,
+  onToggle,
+  actions,
+}: {
+  label: string
+  open: boolean
+  onToggle: () => void
+  actions?: React.ReactNode
+}) {
+  return (
+    <div className="sidebar-section-header" onClick={onToggle}>
+      <IonIcon
+        icon={open ? chevronDownOutline : chevronForward}
+        className="sidebar-section-chevron"
+      />
+      <span className="sidebar-section-title">{label}</span>
+      {actions && (
+        <div className="sidebar-section-actions" onClick={(e) => e.stopPropagation()}>
+          {actions}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ── Main Sidebar ─────────────────────────────────────────────────────────────
+
+export default function Sidebar({
+  notes, activeVault, onCreateNote, onSwitchVault, collapsed, onToggle, activeNoteId,
+}: SidebarProps) {
   const [filter, setFilter] = useState('')
-  const [sortMode, setSortMode] = useState<SortMode>(() =>
-    (localStorage.getItem('file-sort') as SortMode) ?? 'name-asc',
+  const [sortMode, setSortMode] = useState<SortMode>(
+    () => (localStorage.getItem('file-sort') as SortMode) ?? 'name-asc',
   )
   const [collapseSignal, setCollapseSignal] = useState(0)
-  const [expandSignal, setExpandSignal] = useState(0)
-  const [width, setWidth] = useState(() =>
-    parseInt(localStorage.getItem('sidebar-width') || '260', 10),
+  const [expandSignal, setExpandSignal]     = useState(0)
+  const [width, setWidth] = useState(
+    () => parseInt(localStorage.getItem('sidebar-width') || '260', 10),
   )
+
+  // VSCode-style collapsible sections — persist state
+  const [recentOpen, setRecentOpen] = useState(
+    () => localStorage.getItem('sidebar-recent-open') !== 'false',
+  )
+  const [filesOpen, setFilesOpen] = useState(
+    () => localStorage.getItem('sidebar-files-open') !== 'false',
+  )
+
   const history = useHistory()
 
-  const recentNoteIds = useMemo(() => loadRecentNotes(), [activeNoteId]) // recompute when active note changes
+  const recentNoteIds = useMemo(() => loadRecentNotes(), [activeNoteId])
   const recentNotes = useMemo(
     () => recentNoteIds.map((id) => notes.find((n) => n.id === id)).filter(Boolean) as NoteRef[],
     [recentNoteIds, notes],
@@ -66,17 +109,19 @@ export default function Sidebar({ notes, activeVault, onCreateNote, onSwitchVaul
 
   const sortedNotes = useMemo(() => {
     const sorted = [...notes]
-    if (sortMode === 'name-asc') sorted.sort((a, b) => a.name.localeCompare(b.name))
+    if (sortMode === 'name-asc')      sorted.sort((a, b) => a.name.localeCompare(b.name))
     else if (sortMode === 'name-desc') sorted.sort((a, b) => b.name.localeCompare(a.name))
     else if (sortMode === 'modified-desc') sorted.sort((a, b) => b.lastModified - a.lastModified)
-    else if (sortMode === 'modified-asc') sorted.sort((a, b) => a.lastModified - b.lastModified)
+    else if (sortMode === 'modified-asc')  sorted.sort((a, b) => a.lastModified - b.lastModified)
     return sorted
   }, [notes, sortMode])
 
   const filteredNotes = useMemo(() => {
     if (!filter) return sortedNotes
     const q = filter.toLowerCase()
-    return sortedNotes.filter((n) => n.name.toLowerCase().includes(q) || n.path.toLowerCase().includes(q))
+    return sortedNotes.filter(
+      (n) => n.name.toLowerCase().includes(q) || n.path.toLowerCase().includes(q),
+    )
   }, [sortedNotes, filter])
 
   const tree = useMemo(() => buildPathTree(filteredNotes), [filteredNotes])
@@ -84,6 +129,14 @@ export default function Sidebar({ notes, activeVault, onCreateNote, onSwitchVaul
   const handleSortChange = useCallback((mode: SortMode) => {
     setSortMode(mode)
     localStorage.setItem('file-sort', mode)
+  }, [])
+
+  const toggleRecent = useCallback(() => {
+    setRecentOpen((v) => { localStorage.setItem('sidebar-recent-open', String(!v)); return !v })
+  }, [])
+
+  const toggleFiles = useCallback(() => {
+    setFilesOpen((v) => { localStorage.setItem('sidebar-files-open', String(!v)); return !v })
   }, [])
 
   const handleResizeMouseDown = (e: React.MouseEvent) => {
@@ -105,7 +158,11 @@ export default function Sidebar({ notes, activeVault, onCreateNote, onSwitchVaul
 
   return (
     <div className={`sidebar ${collapsed ? 'sidebar--collapsed' : ''}`} style={sidebarStyle}>
-      <button className="sidebar-toggle" onClick={onToggle} title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}>
+      <button
+        className="sidebar-toggle"
+        onClick={onToggle}
+        title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+      >
         <IonIcon icon={collapsed ? chevronForwardOutline : chevronBackOutline} />
       </button>
 
@@ -114,18 +171,12 @@ export default function Sidebar({ notes, activeVault, onCreateNote, onSwitchVaul
           <div className="sidebar-inner">
             {/* Vault header */}
             <div className="sidebar-vault-header">
-              <button
-                className="sidebar-vault-btn"
-                onClick={onSwitchVault}
-                title="Switch vault"
-              >
+              <button className="sidebar-vault-btn" onClick={onSwitchVault} title="Switch vault">
                 <IonIcon
                   icon={activeVault?.type === 'local-fs' ? folderOutline : cloudOutline}
                   className="sidebar-vault-icon"
                 />
-                <span className="sidebar-vault-name">
-                  {activeVault?.name ?? 'No vault'}
-                </span>
+                <span className="sidebar-vault-name">{activeVault?.name ?? 'No vault'}</span>
                 <IonIcon icon={swapHorizontalOutline} className="sidebar-vault-switch-icon" />
               </button>
               <button className="sidebar-action-btn" onClick={onCreateNote} title="New note">
@@ -138,87 +189,96 @@ export default function Sidebar({ notes, activeVault, onCreateNote, onSwitchVaul
               <IonSearchbar
                 value={filter}
                 onIonInput={(e) => setFilter(e.detail.value ?? '')}
-                placeholder="Filter notes..."
+                placeholder="Filter files..."
                 debounce={150}
               />
             </div>
 
             <div className="sidebar-scroll">
-              {/* Recent notes */}
+
+              {/* ── RECENT section ── */}
               {!filter && recentNotes.length > 0 && (
-                <div>
-                  <div className="sidebar-section-label" style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                    <IonIcon icon={timeOutline} style={{ fontSize: '0.65rem' }} />
-                    Recent
-                  </div>
-                  <div style={{ padding: '0 6px 4px' }}>
-                    {recentNotes.slice(0, 5).map((n) => (
-                      <div
-                        key={n.id}
-                        className={`folder-tree-item ${n.id === activeNoteId ? 'folder-tree-item--active' : ''}`}
-                        onClick={() => history.push(`/editor/${n.id}`)}
-                      >
-                        <IonIcon icon={documentTextOutline} />
-                        <span>{n.name}</span>
-                      </div>
-                    ))}
-                  </div>
+                <div className="sidebar-section">
+                  <SectionHeader
+                    label="Recent"
+                    open={recentOpen}
+                    onToggle={toggleRecent}
+                  />
+                  {recentOpen && (
+                    <div className="sidebar-section-body">
+                      {recentNotes.slice(0, 8).map((n) => (
+                        <div
+                          key={n.id}
+                          className={`folder-tree-item ${n.id === activeNoteId ? 'folder-tree-item--active' : ''}`}
+                          onClick={() => history.push(`/editor/${n.id}`)}
+                        >
+                          <span style={{ width: 10 }} />
+                          <IonIcon icon={documentTextOutline} style={{ flexShrink: 0 }} />
+                          <span>{n.name}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               )}
 
-              {/* Files header with sort + collapse/expand */}
-              <div className="sidebar-section-label" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingRight: 6 }}>
-                <span>Files</span>
-                <div style={{ display: 'flex', gap: 2 }}>
-                  <button
-                    className="sidebar-action-btn"
-                    title="Collapse all folders"
-                    style={{ fontSize: '0.55rem', padding: '2px 4px' }}
-                    onClick={() => setCollapseSignal((s) => s + 1)}
-                  >
-                    ⊟
-                  </button>
-                  <button
-                    className="sidebar-action-btn"
-                    title="Expand all folders"
-                    style={{ fontSize: '0.55rem', padding: '2px 4px' }}
-                    onClick={() => setExpandSignal((s) => s + 1)}
-                  >
-                    ⊞
-                  </button>
-                  <select
-                    className="sidebar-sort-select"
-                    value={sortMode}
-                    onChange={(e) => handleSortChange(e.target.value as SortMode)}
-                    title="Sort files"
-                  >
-                    {(Object.keys(SORT_LABELS) as SortMode[]).map((k) => (
-                      <option key={k} value={k}>{SORT_LABELS[k]}</option>
-                    ))}
-                  </select>
-                </div>
+              {/* ── FILES section ── */}
+              <div className="sidebar-section">
+                <SectionHeader
+                  label="Files"
+                  open={filesOpen}
+                  onToggle={toggleFiles}
+                  actions={
+                    <>
+                      <button
+                        className="sidebar-action-btn"
+                        title="Collapse all folders"
+                        style={{ fontSize: '0.55rem', padding: '2px 4px' }}
+                        onClick={() => setCollapseSignal((s) => s + 1)}
+                      >⊟</button>
+                      <button
+                        className="sidebar-action-btn"
+                        title="Expand all folders"
+                        style={{ fontSize: '0.55rem', padding: '2px 4px' }}
+                        onClick={() => setExpandSignal((s) => s + 1)}
+                      >⊞</button>
+                      <select
+                        className="sidebar-sort-select"
+                        value={sortMode}
+                        onChange={(e) => handleSortChange(e.target.value as SortMode)}
+                        title="Sort files"
+                        style={{ fontSize: '0.65rem' }}
+                      >
+                        {(Object.keys(SORT_LABELS) as SortMode[]).map((k) => (
+                          <option key={k} value={k}>{SORT_LABELS[k]}</option>
+                        ))}
+                      </select>
+                    </>
+                  }
+                />
+                {filesOpen && (
+                  <div className="sidebar-section-body">
+                    {tree.length > 0 ? (
+                      <FolderTree
+                        nodes={tree}
+                        activeNoteId={activeNoteId}
+                        collapseSignal={collapseSignal}
+                        expandSignal={expandSignal}
+                      />
+                    ) : (
+                      <div style={{ padding: '6px 14px', fontSize: '0.75rem', color: 'var(--text-faint)' }}>
+                        {filter ? 'No matches' : 'No files yet'}
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
 
-              {/* File tree */}
-              {tree.length > 0 ? (
-                <FolderTree
-                  nodes={tree}
-                  activeNoteId={activeNoteId}
-                  collapseSignal={collapseSignal}
-                  expandSignal={expandSignal}
-                />
-              ) : (
-                <div style={{ padding: '8px 16px', fontSize: '0.75rem', color: 'var(--text-faint)' }}>
-                  {filter ? 'No matches' : 'No notes yet'}
-                </div>
-              )}
-
-              {/* Tags */}
-              <div style={{ marginTop: 8, borderTop: '1px solid var(--border-subtle)', paddingTop: 4 }}>
+              {/* ── TAGS section ── */}
+              <div style={{ borderTop: '1px solid var(--border-subtle)', paddingTop: 4 }}>
                 <TagBrowser />
               </div>
 
-              {/* Outline */}
               <OutlinePanel />
             </div>
           </div>

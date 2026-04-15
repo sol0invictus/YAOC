@@ -2483,3 +2483,161 @@ ion-badge {
   font-size: 0.78rem;
   color: var(--accent-red);
 }
+
+/* ============================================
+   VSCode-style collapsible sidebar sections
+   ============================================ */
+
+.sidebar-section {
+  margin-bottom: 2px;
+}
+
+.sidebar-section-header {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 6px 4px 8px;
+  cursor: pointer;
+  user-select: none;
+  color: var(--text-faint);
+  transition: color 0.12s;
+}
+.sidebar-section-header:hover { color: var(--text-normal); }
+
+.sidebar-section-chevron {
+  font-size: 0.6rem;
+  flex-shrink: 0;
+  transition: transform 0.15s;
+}
+
+.sidebar-section-title {
+  font-size: 0.67rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  flex: 1;
+}
+
+.sidebar-section-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  opacity: 0;
+  transition: opacity 0.12s;
+}
+.sidebar-section-header:hover .sidebar-section-actions { opacity: 1; }
+
+.sidebar-section-body {
+  /* no extra padding — FolderTree / items bring their own */
+}
+
+/* ============================================
+   Non-markdown file tree items
+   ============================================ */
+
+.folder-tree-item--asset {
+  opacity: 0.85;
+}
+.folder-tree-item--asset:hover { opacity: 1; }
+
+/* ============================================
+   Plain-text (code/config file) editor
+   ============================================ */
+
+.plain-text-editor {
+  flex: 1;
+  width: 100%;
+  height: 100%;
+  background: var(--bg-primary);
+  color: var(--text-normal);
+  border: none;
+  outline: none;
+  resize: none;
+  font-family: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace;
+  font-size: 0.85rem;
+  line-height: 1.65;
+  padding: 20px 28px;
+  tab-size: 2;
+  caret-color: var(--accent-primary);
+  box-sizing: border-box;
+}
+
+/* ============================================
+   File viewer (images, audio, video, PDF)
+   ============================================ */
+
+.file-viewer {
+  flex: 1;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  overflow: auto;
+  padding: 24px;
+  background: var(--bg-primary);
+}
+
+.file-viewer--centered {
+  align-items: center;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.file-viewer-image {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  border-radius: 6px;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.4);
+}
+
+.file-viewer-audio {
+  width: 360px;
+  max-width: 100%;
+}
+
+.file-viewer-video {
+  max-width: 100%;
+  max-height: 100%;
+  border-radius: 6px;
+}
+
+.file-viewer-pdf {
+  width: 100%;
+  height: 100%;
+  min-height: 600px;
+  border: none;
+  border-radius: 6px;
+}
+
+.file-viewer-label {
+  font-size: 0.8rem;
+  color: var(--text-faint);
+}
+
+.file-viewer-empty {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ============================================
+   Status bar save-delay selector
+   ============================================ */
+
+.status-bar-save-select {
+  background: transparent;
+  border: none;
+  color: var(--text-faint);
+  font-size: 0.68rem;
+  cursor: pointer;
+  outline: none;
+  font-family: inherit;
+  padding: 0 2px;
+  transition: color 0.12s;
+}
+.status-bar-save-select:hover { color: var(--text-normal); }
+.status-bar-save-select option {
+  background: var(--bg-surface);
+  color: var(--text-normal);
+}
