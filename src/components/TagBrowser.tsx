@@ -1,11 +1,95 @@
 import { useState, useEffect } from 'react'
 import { useHistory } from 'react-router-dom'
 import { useVault } from '../hooks/useVault'
+import '../styles/tag-tree.css'
 
 interface TagCount {
   tag: string
   count: number
 }
+
+interface TagNode {
+  name: string
+  fullPath: string
+  count: number
+  children: Map<string, TagNode>
+}
+
+function buildTagTree(tags: TagCount[]): Map<string, TagNode> {
+  const root = new Map<string, TagNode>()
+  for (const { tag, count } of tags) {
+    const parts = tag.split('/')
+    let current = root
+    let fullPath = ''
+    for (let i = 0; i < parts.length; i++) {
+      const part = parts[i]
+      fullPath = fullPath ? `${fullPath}/${part}` : part
+      if (!current.has(part)) {
+        current.set(part, { name: part, fullPath, count: 0, children: new Map() })
+      }
+      if (i === parts.length - 1) {
+        current.get(part)!.count += count
+      }
+      current = current.get(part)!.children
+    }
+  }
+  return root
+}
+
+function TagTreeNode({
+  node,
+  depth,
+  onTagClick,
+}: {
+  node: TagNode
+  depth: number
+  onTagClick: (fullPath: string) => void
+}) {
+  const [expanded, setExpanded] = useState(false)
+  const hasChildren = node.children.size > 0
+  const children = [...node.children.values()].sort(
+    (a, b) => b.count - a.count || a.name.localeCompare(b.name)
+  )
+
+  return (
+    <div style={depth > 0 ? undefined : undefined}>
+      <div className="tag-tree-row">
+        {hasChildren ? (
+          <button
+            className="tag-tree-toggle"
+            onClick={(e) => { e.stopPropagation(); setExpanded((x) => !x) }}
+          >
+            {expanded ? '▾' : '▸'}
+          </button>
+        ) : (
+          <span className="tag-tree-indent" />
+        )}
+        <span
+          className="tag-link"
+          style={{ fontSize: '0.72rem', cursor: 'pointer' }}
+          onClick={() => onTagClick(node.fullPath)}
+        >
+          #{node.name}
+        </span>
+        {node.count > 0 && <span className="tag-count">{node.count}</span>}
+      </div>
+      {expanded && hasChildren && (
+        <div className="tag-tree-children">
+          {children.map((child) => (
+            <TagTreeNode
+              key={child.fullPath}
+              node={child}
+              depth={depth + 1}
+              onTagClick={onTagClick}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+const INITIAL_SHOW = 8
 
 export default function TagBrowser() {
   const { vaultDb } = useVault()
@@ -31,44 +115,34 @@ export default function TagBrowser() {
 
   if (tags.length === 0) return null
 
-  const displayed = expanded ? tags : tags.slice(0, 8)
+  const tree = buildTagTree(tags)
+  const topLevel = [...tree.values()].sort((a, b) => b.count - a.count || a.name.localeCompare(b.name))
+  const displayed = expanded ? topLevel : topLevel.slice(0, INITIAL_SHOW)
+
+  const handleTagClick = (fullPath: string) => {
+    history.push(`/home?tag=${encodeURIComponent(fullPath)}`)
+  }
 
   return (
     <div>
       <div className="sidebar-section-label">Tags</div>
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, padding: '2px 12px 8px' }}>
-        {displayed.map(({ tag, count }) => (
-          <span
-            key={tag}
-            className="tag-link"
-            style={{ fontSize: '0.72rem' }}
-            onClick={() => history.push(`/home?tag=${encodeURIComponent(tag)}`)}
-          >
-            #{tag}
-            <span style={{
-              marginLeft: 4,
-              fontSize: '0.6rem',
-              opacity: 0.6,
-              fontWeight: 400,
-            }}>
-              {count}
-            </span>
-          </span>
+      <div className="tag-tree-section">
+        {displayed.map((node) => (
+          <TagTreeNode
+            key={node.fullPath}
+            node={node}
+            depth={0}
+            onTagClick={handleTagClick}
+          />
         ))}
       </div>
-      {tags.length > 8 && (
+      {topLevel.length > INITIAL_SHOW && (
         <button
+          className="tag-tree-more"
+          style={{ paddingLeft: 12 }}
           onClick={() => setExpanded(!expanded)}
-          style={{
-            background: 'none',
-            border: 'none',
-            fontSize: '0.68rem',
-            color: 'var(--text-faint)',
-            cursor: 'pointer',
-            padding: '0 12px 6px',
-          }}
         >
-          {expanded ? 'Show less' : `+${tags.length - 8} more`}
+          {expanded ? 'Show less' : `+${topLevel.length - INITIAL_SHOW} more`}
         </button>
       )}
     </div>

@@ -20,6 +20,7 @@ import {
 } from '../storage/vaultRegistry'
 import { IndexedDBAdapter } from '../storage/IndexedDBAdapter'
 import { LocalFSAdapter } from '../storage/LocalFSAdapter'
+import { ElectronFSAdapter, isElectron } from '../storage/ElectronFSAdapter'
 import { getVaultDB, type NotesDB } from '../storage/db'
 import type { VaultAdapter } from '../storage/types'
 
@@ -82,6 +83,19 @@ export function useVaultRegistry() {
       return
     }
 
+    // electron-fs: restore from stored folderPath
+    if (activeVault.type === 'electron-fs') {
+      if (activeVault.folderPath) {
+        const adapter = new ElectronFSAdapter(activeVault.folderPath)
+        setAdapterState({
+          adapter,
+          vaultDb: getVaultDB('default'),
+          localFolderName: adapter.folderName,
+        })
+      }
+      return
+    }
+
     // local-fs: try to restore the handle from IDB, then check permission
     loadHandle(activeVault.id).then(async (handle) => {
       if (!handle) {
@@ -129,11 +143,51 @@ export function useVaultRegistry() {
   )
 
   /**
+   * In Electron: opens a native folder dialog and registers an electron-fs vault.
+   */
+  const openElectronFolderVault = useCallback(async (): Promise<VaultEntry | null> => {
+    const folderPath = await window.electronAPI!.openFolder()
+    if (!folderPath) return null
+
+    const folderName = folderPath.split(/[\\/]/).pop() ?? folderPath
+    const existing = listVaults().find(
+      (v) => v.type === 'electron-fs' && v.folderPath === folderPath,
+    )
+    const entry: VaultEntry = existing
+      ? { ...existing, lastOpenedAt: Date.now() }
+      : {
+          id: nanoid(),
+          name: folderName,
+          type: 'electron-fs',
+          folderPath,
+          createdAt: Date.now(),
+          lastOpenedAt: Date.now(),
+        }
+
+    upsertVault(entry)
+    setActiveVaultId(entry.id)
+    setActiveVaultIdState(entry.id)
+    _syncVaults()
+
+    const adapter = new ElectronFSAdapter(folderPath)
+    setAdapterState({
+      adapter,
+      vaultDb: getVaultDB('default'),
+      localFolderName: adapter.folderName,
+    })
+
+    return entry
+  }, [_syncVaults])
+
+  /**
    * Opens a native directory picker.  The chosen folder is registered as a
    * local-fs vault and the adapter is built immediately (permission is
    * implicitly granted by the picker interaction).
    */
   const openFolderVault = useCallback(async (): Promise<VaultEntry | null> => {
+    // In Electron, use the IPC-based dialog instead of File System Access API
+    if (isElectron()) return openElectronFolderVault()
+
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     if (typeof (window as any).showDirectoryPicker !== 'function') {
       alert('File System Access API is not available in this browser. Use Chrome or Edge.')

@@ -41,7 +41,7 @@ export interface Conflict {
 }
 
 export interface VaultAdapter {
-  type: 'indexeddb' | 'local-fs' | 'gdrive'
+  type: 'indexeddb' | 'local-fs' | 'gdrive' | 'electron-fs'
   list(): Promise<NoteRef[]>
   read(id: string): Promise<Note>
   write(id: string, path: string, content: string): Promise<void>

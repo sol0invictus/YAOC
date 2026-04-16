@@ -19,6 +19,7 @@ import type { VaultAdapter, NoteRef, Note } from '../storage/types'
 import { type NotesDB, db as defaultDb } from '../storage/db'
 import { nanoid } from '../util/nanoid'
 import { indexNote } from '../utils/linkIndex'
+// (indexNote is also used by renameNote for updating wikilinks)
 
 // Blob URL cache — lives at module scope so it survives vault switches
 // (avoids duplicate object URLs for the same attachment ID).
@@ -32,13 +33,14 @@ export interface VaultContextValue {
   notes: NoteRef[]
   loading: boolean
   localFolderName: string | null
+  noteAliases: Set<string>
   refresh: () => Promise<void>
   createNote: (name: string, folderPath?: string) => Promise<Note>
   saveNote: (id: string, path: string, content: string) => Promise<void>
   deleteNote: (id: string) => Promise<void>
   renameNote: (id: string, newName: string) => Promise<void>
   readNote: (id: string) => Promise<Note>
-  findNoteByName: (name: string) => NoteRef | undefined
+  findNoteByName: (name: string) => Promise<NoteRef | undefined>
   saveAttachment: (blob: Blob, fileName: string) => Promise<string>
   getAttachmentUrl: (uri: string) => Promise<string | null>
   getAttachmentByName: (fileName: string) => Promise<string | null>
@@ -70,16 +72,19 @@ export function VaultProvider({
 }: VaultProviderProps) {
   const [notes, setNotes] = useState<NoteRef[]>([])
   const [loading, setLoading] = useState(false)
+  const [noteAliases, setNoteAliases] = useState<Set<string>>(new Set())
 
   const refresh = useCallback(async () => {
     setLoading(true)
     try {
       const list = await adapter.list()
       setNotes(list)
+      const aliasRows = await vaultDb.aliases.toArray()
+      setNoteAliases(new Set(aliasRows.map((a) => a.alias.toLowerCase())))
     } finally {
       setLoading(false)
     }
-  }, [adapter])
+  }, [adapter, vaultDb])
 
   // Load notes whenever the adapter changes (vault switch or initial mount)
   useEffect(() => {
@@ -131,28 +136,58 @@ export function VaultProvider({
   const renameNote = useCallback(
     async (id: string, newName: string) => {
       const note = await adapter.read(id)
+      const oldName = note.name
       const folderPrefix = note.path.includes('/')
         ? note.path.substring(0, note.path.lastIndexOf('/') + 1)
         : ''
       const newPath =
         folderPrefix + (newName.endsWith('.md') ? newName : `${newName}.md`)
       await adapter.write(id, newPath, note.content)
+
+      // Update [[OldName]] wikilinks in all other notes
+      if (oldName !== newName) {
+        const escaped = oldName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+        const wikilinkRe = new RegExp(`\\[\\[${escaped}(\\]\\]|#|\\|)`, 'gi')
+        const allNotes = await adapter.list()
+        for (const ref of allNotes) {
+          if (ref.id === id) continue
+          try {
+            const other = await adapter.read(ref.id)
+            if (!wikilinkRe.test(other.content)) continue
+            wikilinkRe.lastIndex = 0
+            const updated = other.content.replace(wikilinkRe, `[[${newName}$1`)
+            await adapter.write(ref.id, other.path, updated)
+            await indexNote(ref.id, updated, vaultDb)
+          } catch {
+            // skip notes that can't be read
+          }
+        }
+      }
+
       await refresh()
     },
-    [adapter, refresh],
+    [adapter, vaultDb, refresh],
   )
 
   const findNoteByName = useCallback(
-    (name: string): NoteRef | undefined => {
+    async (name: string): Promise<NoteRef | undefined> => {
       const lower = name.toLowerCase()
-      return notes.find(
+      // Direct name/path match
+      const direct = notes.find(
         (n) =>
           n.name.toLowerCase() === lower ||
           n.path.toLowerCase() === `${lower}.md` ||
           n.path.toLowerCase().endsWith(`/${lower}.md`),
       )
+      if (direct) return direct
+      // Alias lookup
+      const aliasRow = await vaultDb.aliases
+        .filter((a) => a.alias.toLowerCase() === lower)
+        .first()
+      if (aliasRow) return notes.find((n) => n.id === aliasRow.noteId)
+      return undefined
     },
-    [notes],
+    [notes, vaultDb],
   )
 
   // ── Attachments ───────────────────────────────────────────────────────────
@@ -321,6 +356,7 @@ export function VaultProvider({
     notes,
     loading,
     localFolderName,
+    noteAliases,
     refresh,
     createNote,
     saveNote,

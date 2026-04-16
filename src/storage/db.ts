@@ -38,6 +38,12 @@ export interface DBAttachment {
   createdAt: number
 }
 
+export interface DBAlias {
+  id?: number
+  noteId: string
+  alias: string
+}
+
 export class NotesDB extends Dexie {
   notes!: Table<DBNote>
   syncMeta!: Table<DBSyncMeta>
@@ -45,6 +51,7 @@ export class NotesDB extends Dexie {
   links!: Table<DBLink>
   tags!: Table<DBTag>
   attachments!: Table<DBAttachment>
+  aliases!: Table<DBAlias>
 
   constructor(name = 'yaoa-notes') {
     super(name)
@@ -75,6 +82,15 @@ export class NotesDB extends Dexie {
       links: '++id, sourceNoteId, targetName',
       tags: '++id, noteId, tag',
       attachments: 'id, createdAt, originalName',
+    })
+    this.version(5).stores({
+      notes: 'id, path, lastModified, dirty',
+      syncMeta: 'noteId',
+      offlineQueue: '++id, noteId, timestamp',
+      links: '++id, sourceNoteId, targetName',
+      tags: '++id, noteId, tag',
+      attachments: 'id, createdAt, originalName',
+      aliases: '++id, noteId, alias',
     })
   }
 }

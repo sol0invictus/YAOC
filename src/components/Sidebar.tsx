@@ -19,6 +19,7 @@ import { buildPathTree } from '../utils/pathTree'
 import FolderTree from './FolderTree'
 import TagBrowser from './TagBrowser'
 import OutlinePanel from './OutlinePanel'
+import GraphView from './GraphView'
 import type { VaultEntry } from '../hooks/useVaultRegistry'
 
 type SortMode = 'name-asc' | 'name-desc' | 'modified-desc' | 'modified-asc'
@@ -157,6 +158,7 @@ export default function Sidebar({
     document.addEventListener('mouseup', onUp)
   }
 
+  const [showGraph, setShowGraph] = useState(false)
   const sidebarStyle = collapsed ? undefined : { width, minWidth: width }
 
   return (
@@ -291,8 +293,31 @@ export default function Sidebar({
               </div>
 
               <OutlinePanel />
+
+              {/* ── Graph view button ── */}
+              <div style={{ padding: '8px 12px', borderTop: '1px solid var(--border-subtle)' }}>
+                <button
+                  onClick={() => setShowGraph(true)}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 6,
+                    background: 'none', border: '1px solid var(--border-color)',
+                    borderRadius: 4, padding: '4px 10px', cursor: 'pointer',
+                    color: 'var(--text-muted)', fontSize: '0.75rem', width: '100%',
+                    justifyContent: 'center',
+                  }}
+                >
+                  ⬡ Graph view
+                </button>
+              </div>
             </div>
           </div>
+
+          <GraphView
+            isOpen={showGraph}
+            onClose={() => setShowGraph(false)}
+            activeNoteId={activeNoteId}
+            onNavigate={(id) => { history.push(`/editor/${id}`); setShowGraph(false) }}
+          />
 
           <div className="sidebar-resize-handle" onMouseDown={handleResizeMouseDown} />
         </>

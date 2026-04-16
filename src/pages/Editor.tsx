@@ -4,6 +4,7 @@ import { IonAlert, IonSpinner } from '@ionic/react'
 import { useVault } from '../hooks/useVault'
 import MarkdownEditor from '../components/MarkdownEditor'
 import BacklinksPanel from '../components/BacklinksPanel'
+import FrontmatterPanel from '../components/FrontmatterPanel'
 import { useActiveNoteContent } from '../context/activeNote'
 import { recordRecentNote } from '../components/Sidebar'
 import { useKeyboardShortcut } from '../hooks/useKeyboardShortcut'
@@ -88,7 +89,7 @@ function FileViewer({ id, fileKind }: { id: string; fileKind: FileKind }) {
 export default function Editor() {
   const { id } = useParams<{ id: string }>()
   const { readNote, saveNote, renameNote, notes, findNoteByName, createNote,
-          saveAttachment, getAttachmentUrl, getAttachmentByName } = useVault()
+          saveAttachment, getAttachmentUrl, getAttachmentByName, noteAliases } = useVault()
   const { setActiveContent } = useActiveNoteContent()
   const history = useHistory()
   const textareaScrollRef = useRef<HTMLTextAreaElement>(null)
@@ -209,13 +210,13 @@ export default function Editor() {
   // ── Preview / wikilinks ────────────────────────────────────────────────────
 
   const existingNotes = useMemo(
-    () => new Set(notes.map((n) => n.name.toLowerCase())),
-    [notes],
+    () => new Set([...notes.map((n) => n.name.toLowerCase()), ...noteAliases]),
+    [notes, noteAliases],
   )
 
   const handleWikilinkClick = useCallback(
-    (target: string) => {
-      const found = findNoteByName(target)
+    async (target: string) => {
+      const found = await findNoteByName(target)
       if (found) history.push(`/editor/${found.id}`)
       else setCreateTarget(target)
     },
@@ -247,7 +248,7 @@ export default function Editor() {
 
   const handleReadNoteByName = useCallback(
     async (name: string): Promise<string | null> => {
-      const ref = findNoteByName(name)
+      const ref = await findNoteByName(name)
       if (!ref) return null
       try { return (await readNote(ref.id)).content } catch { return null }
     },
@@ -307,6 +308,9 @@ export default function Editor() {
       </div>
 
       <div className="editor-body">
+        {isMarkdown && (
+          <FrontmatterPanel content={content} onChange={handleChange} />
+        )}
         {isMarkdown && (
           <MarkdownEditor
             content={content}

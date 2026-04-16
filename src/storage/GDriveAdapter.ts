@@ -25,12 +25,47 @@ export class GDriveAdapter implements VaultAdapter, SyncAdapter {
   readonly syncType = 'gdrive' as const
   private folderId: string | null = null
 
+  constructor(folderId?: string) {
+    if (folderId) this.folderId = folderId
+  }
+
+  /** List all Drive folders inside a given parent (default: root). */
+  static async listFolders(parentId = 'root'): Promise<{ id: string; name: string }[]> {
+    const q = `'${parentId}' in parents and mimeType='${MIME_FOLDER}' and trashed=false`
+    const resp = await driveRequest(
+      `/drive/v3/files?q=${encodeURIComponent(q)}&fields=files(id,name)&orderBy=name&pageSize=200`,
+    )
+    if (!resp.ok) throw new Error(`Drive listFolders failed: ${resp.status}`)
+    const data = await resp.json() as { files: { id: string; name: string }[] }
+    return data.files
+  }
+
+  /** Create a Drive folder and return its id + name. */
+  static async createFolder(
+    name: string,
+    parentId?: string,
+  ): Promise<{ id: string; name: string }> {
+    const meta: Record<string, unknown> = {
+      name,
+      mimeType: MIME_FOLDER,
+      parents: [parentId && parentId !== 'root' ? parentId : 'root'],
+    }
+    const resp = await driveRequest('/drive/v3/files', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(meta),
+    })
+    if (!resp.ok) throw new Error(`Drive createFolder failed: ${resp.status}`)
+    const data = await resp.json() as { id: string; name: string }
+    return { id: data.id, name: data.name }
+  }
+
   private async ensureFolder(): Promise<string> {
     if (this.folderId) return this.folderId
 
-    // Look for existing folder
+    // No folder selected yet — fall back to auto-create "YAOA Notes" in root
     const search = await driveRequest(
-      `/drive/v3/files?q=name='${FOLDER_NAME}' and mimeType='${MIME_FOLDER}' and trashed=false&fields=files(id,name)`,
+      `/drive/v3/files?q=${encodeURIComponent(`name='${FOLDER_NAME}' and mimeType='${MIME_FOLDER}' and trashed=false`)}&fields=files(id,name)`,
     )
     const data = await search.json() as { files: { id: string }[] }
 
@@ -39,7 +74,6 @@ export class GDriveAdapter implements VaultAdapter, SyncAdapter {
       return this.folderId
     }
 
-    // Create folder
     const create = await driveRequest('/drive/v3/files', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },

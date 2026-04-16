@@ -12,9 +12,11 @@ import Dexie from 'dexie'
 export interface VaultEntry {
   id: string
   name: string
-  type: 'indexeddb' | 'local-fs'
+  type: 'indexeddb' | 'local-fs' | 'electron-fs'
   createdAt: number
   lastOpenedAt: number
+  /** Absolute folder path — only set for electron-fs vaults */
+  folderPath?: string
 }
 
 const VAULTS_KEY = 'yaoa-vaults'

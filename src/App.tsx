@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo, useEffect } from 'react'
+import { useState, useCallback, useMemo, useEffect, useRef } from 'react'
 import { IonApp, IonAlert } from '@ionic/react'
 import { IonReactRouter } from '@ionic/react-router'
 import { Route, Redirect, Switch, useLocation, useHistory } from 'react-router-dom'
@@ -17,6 +17,8 @@ import { useVaultRegistry, type VaultEntry } from './hooks/useVaultRegistry'
 import { useSync } from './hooks/useSync'
 import { ActiveNoteProvider } from './context/activeNote'
 import FullTextSearch from './components/FullTextSearch'
+import CommandPalette, { type Command } from './components/CommandPalette'
+import { useKeyboardShortcut } from './hooks/useKeyboardShortcut'
 
 // OneDrive client ID can be initialized at module load (no external script dependency)
 const onedriveClientId = import.meta.env.VITE_ONEDRIVE_CLIENT_ID as string | undefined
@@ -63,6 +65,9 @@ function AppShellInner({
   const [showNewNote, setShowNewNote] = useState(false)
   const [showSyncModal, setShowSyncModal] = useState(false)
   const [openTabs, setOpenTabs] = useState<string[]>(loadTabs)
+  const [commandPaletteOpen, setCommandPaletteOpen] = useState(false)
+
+  useKeyboardShortcut('p', () => setCommandPaletteOpen(true), { ctrl: true })
 
   const activeNoteId = useMemo(() => {
     const match = location.pathname.match(/^\/editor\/(.+)/)
@@ -150,6 +155,55 @@ function AppShellInner({
 
       <QuickSwitcher notes={notes} onCreateNote={handleCreateNote} />
       <FullTextSearch />
+      <CommandPalette
+        isOpen={commandPaletteOpen}
+        onClose={() => setCommandPaletteOpen(false)}
+        commands={useMemo<Command[]>(() => [
+          {
+            id: 'new-note',
+            label: 'New Note',
+            description: 'Create a new markdown note',
+            action: () => { setCommandPaletteOpen(false); setShowNewNote(true) },
+          },
+          {
+            id: 'quick-switcher',
+            label: 'Open Quick Switcher',
+            description: 'Fuzzy search notes by title  (Ctrl+K)',
+            action: () => {
+              setCommandPaletteOpen(false)
+              setTimeout(() => window.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', ctrlKey: true, bubbles: true })), 50)
+            },
+          },
+          {
+            id: 'search-all',
+            label: 'Search All Notes',
+            description: 'Full-text search across vault  (Ctrl+Shift+F)',
+            action: () => {
+              setCommandPaletteOpen(false)
+              setTimeout(() => window.dispatchEvent(new KeyboardEvent('keydown', { key: 'f', ctrlKey: true, shiftKey: true, bubbles: true })), 50)
+            },
+          },
+          {
+            id: 'switch-vault',
+            label: 'Switch Vault',
+            description: 'Open the vault picker',
+            action: () => { setCommandPaletteOpen(false); onSwitchVault() },
+          },
+          {
+            id: 'toggle-sidebar',
+            label: 'Toggle Sidebar',
+            description: 'Collapse or expand the sidebar',
+            action: () => { setCommandPaletteOpen(false); setSidebarCollapsed((c) => !c) },
+          },
+          {
+            id: 'go-home',
+            label: 'Go to Home',
+            description: 'Navigate to the notes list',
+            action: () => { setCommandPaletteOpen(false); history.push('/home') },
+          },
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+        ], [onSwitchVault, history])}
+      />
 
       <SyncProviderModal
         isOpen={showSyncModal}
@@ -207,6 +261,13 @@ function AppShell() {
   } = useVaultRegistry()
 
   const [showPicker, setShowPicker] = useState(false)
+
+  // Listen for "Open Folder" from Electron app menu
+  useEffect(() => {
+    if (!window.electronAPI) return
+    const unsub = window.electronAPI.onMenuOpenFolder(() => setShowPicker(true))
+    return unsub
+  }, [])
 
   // No vault is ready → keep picker open (non-dismissible)
   const pickerOpen = showPicker || !adapterState

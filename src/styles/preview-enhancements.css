@@ -1,0 +1,41 @@
+/* Code block copy button */
+.code-copy-btn {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  padding: 2px 8px;
+  font-size: 0.7rem;
+  background: var(--bg-surface);
+  color: var(--text-muted);
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.15s;
+  font-family: inherit;
+  z-index: 1;
+}
+pre:hover .code-copy-btn { opacity: 1; }
+.code-copy-btn:hover { background: var(--bg-hover); color: var(--text-normal); }
+
+/* Code block line numbers */
+pre.has-line-numbers code {
+  counter-reset: line-number;
+  display: block;
+}
+pre.has-line-numbers code .code-line {
+  display: block;
+  counter-increment: line-number;
+}
+pre.has-line-numbers code .code-line::before {
+  content: counter(line-number);
+  display: inline-block;
+  width: 2.5em;
+  padding-right: 1em;
+  text-align: right;
+  color: var(--text-faint);
+  border-right: 1px solid var(--border-color);
+  margin-right: 1em;
+  user-select: none;
+  font-size: 0.85em;
+}

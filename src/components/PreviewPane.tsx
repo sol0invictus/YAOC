@@ -11,6 +11,7 @@ import rehypeStringify from 'rehype-stringify'
 import rehypeRaw from 'rehype-raw'
 import { visit } from 'unist-util-visit'
 import 'katex/dist/katex.min.css'
+import '../styles/preview-enhancements.css'
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 
@@ -463,6 +464,8 @@ export default function PreviewPane({
 }: PreviewPaneProps) {
   const [html, setHtml] = useState('')
   const containerRef = useRef<HTMLDivElement>(null)
+  // Persist callout open/closed state across re-renders
+  const calloutStatesRef = useRef<Map<string, boolean>>(new Map())
 
   // Always-current ref so plugins don't capture stale values
   const existingNotesRef = useRef<Set<string>>(existingNotes)
@@ -602,6 +605,50 @@ export default function PreviewPane({
       })
   }, [html, resolveImageSrc])
 
+  // ── Code block copy button + line numbers ──────────────────────────────────
+  useEffect(() => {
+    if (!containerRef.current) return
+    containerRef.current.querySelectorAll('pre').forEach((pre) => {
+      if (pre.querySelector('.code-copy-btn')) return
+      const code = pre.querySelector('code')
+      if (!code) return
+
+      // Copy button
+      const btn = document.createElement('button')
+      btn.className = 'code-copy-btn'
+      btn.textContent = 'Copy'
+      btn.onclick = async () => {
+        await navigator.clipboard.writeText(code.innerText)
+        btn.textContent = 'Copied!'
+        setTimeout(() => { btn.textContent = 'Copy' }, 1500)
+      }
+      pre.appendChild(btn)
+
+      // Line numbers for explicitly-language-annotated blocks (skip mermaid)
+      const cls = Array.from(code.classList)
+      const hasLanguage = cls.some((c) => c.startsWith('language-'))
+      const isMermaid = pre.classList.contains('mermaid-source') || cls.includes('language-mermaid')
+      if (hasLanguage && !isMermaid && !pre.classList.contains('has-line-numbers')) {
+        const lines = code.innerHTML.split('\n')
+        // Remove trailing empty line caused by split
+        if (lines[lines.length - 1] === '') lines.pop()
+        code.innerHTML = lines.map((l) => `<span class="code-line">${l}</span>`).join('\n')
+        pre.classList.add('has-line-numbers')
+      }
+    })
+  }, [html])
+
+  // ── Restore callout collapse state after re-render ──────────────────────────
+  useEffect(() => {
+    if (!containerRef.current) return
+    containerRef.current.querySelectorAll('details.callout').forEach((el) => {
+      const details = el as HTMLDetailsElement
+      const key = details.querySelector('.callout-title')?.textContent ?? ''
+      const saved = calloutStatesRef.current.get(key)
+      if (saved !== undefined) details.open = saved
+    })
+  }, [html])
+
   // ── Render Mermaid diagrams ─────────────────────────────────────────────────
   useEffect(() => {
     if (!containerRef.current) return
@@ -642,6 +689,15 @@ export default function PreviewPane({
     if (tag && onTagClick) {
       e.preventDefault()
       onTagClick(tag.getAttribute('data-tag')!)
+      return
+    }
+    // Track callout collapse state
+    const details = target.closest('details.callout') as HTMLDetailsElement | null
+    if (details) {
+      setTimeout(() => {
+        const key = details.querySelector('.callout-title')?.textContent ?? ''
+        calloutStatesRef.current.set(key, details.open)
+      }, 0)
     }
   }
 
